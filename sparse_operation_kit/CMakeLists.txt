@@ -14,20 +14,22 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-project(SparseOperationKit LANGUAGES CXX CUDA)
+project(SparseOperationKit LANGUAGES CXX)
 
 message(STATUS "Building Sparse Operation Kit from source.")
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_HIP_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmakes)
+list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
 
-find_package(CUDA REQUIRED)
-find_package(NCCL REQUIRED)
+find_package(hip REQUIRED)
+find_package(RCCL REQUIRED)
 find_package(TensorFlow REQUIRED)
 find_package(MPI REQUIRED)
 find_package(Threads)
 
-set(CUDA_SEPARABLE_COMPILATION ON)
+#set(HIP_SEPARABLE_COMPILATION ON)
 
 # whether use nvtx
 option(USE_NVTX "Use nvtx for profiling" OFF)
@@ -51,27 +53,23 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 foreach(arch_name ${SM})
-    if (arch_name STREQUAL 80 OR 
-        arch_name STREQUAL 75 OR 
-        arch_name STREQUAL 70 OR 
-        arch_name STREQUAL 61 OR 
-        arch_name STREQUAL 60)
-        list(APPEND cuda_arch_list ${arch_name})
+    if (arch_name STREQUAL gfx908)
+        list(APPEND rocm_arch_list ${arch_name})
         message(STATUS "Assign GPU architecture (sm=${arch_name})")
     else()
-        message(FATAL_ERROR "Unknown or unsupported GPU architecture (set sm=70)")
+        message(FATAL_ERROR "Unknown or unsupported GPU architecture (set sm=gfx908)")
     endif()
 endforeach()
 
-list(LENGTH cuda_arch_list cuda_arch_list_length)
-if(${cuda_arch_list_length} EQUAL 0)
-    list(APPEND cuda_arch_list "70")
-    message(STATUS "Assign default GPU architecture sm=70")
+list(LENGTH rocm_arch_list rocm_arch_list_length)
+if(${rocm_arch_list_length} EQUAL 0)
+    list(APPEND rocm_arch_list "gfx908")
+    message(STATUS "Assign default GPU architecture sm=gfx908")
 endif()
-list(REMOVE_DUPLICATES cuda_arch_list)
+list(REMOVE_DUPLICATES rocm_arch_list)
 
-foreach(arch_name ${cuda_arch_list})
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
+foreach(arch_name ${rocm_arch_list})
+    set(GPU_TARGETS "${arch_name}" CACHE STRING "GPU targets to compile for")
 endforeach()
 
 if (${CMAKE_BUILD_TYPE} EQUAL "Release")
@@ -80,25 +78,25 @@ if (${CMAKE_BUILD_TYPE} EQUAL "Release")
     if (${TF_VERSION_MAJOR} EQUAL 1)
         set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-error=class-memaccess")
     endif()
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcudafe --display_error_number")
-    # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
+    set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp")
+    # set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -Xcudafe --display_error_number")
+    # set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
 else() 
     # -------- set flags for DEBUG mode --- #
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wno-unknown-pragmas")
     if (${TF_VERSION_MAJOR} EQUAL 1)
         set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wno-error=class-memaccess")
     endif()
-    set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -rdc=true -Xcompiler -Wall,-Wno-error=cpp")
-    set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -Xcudafe --display_error_number")
-    # set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
+    set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -rdc=true -Xcompiler -Wall,-Wno-error=cpp")
+    # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -Xcudafe --display_error_number")
+    # set(CMAKE_HIP_FLAGS_DEBUG "${CMAKE_HIP_FLAGS_DEBUG} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
     # ------------------------------------- #
 endif()
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+# set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TF_COMPILE_FLAGS}")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DGOOGLE_CUDA=1 ${TF_COMPILE_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_HIP_FLAGS} ${TF_COMPILE_FLAGS} -DTENSORFLOW_USE_ROCM=1 /opt/rocm/lib/libhiprand.so /opt/rocm/lib/librccl.so /opt/rocm/lib/libhipsparse.so -DHIP_PLATFORM=AMD -DEIGEN_USE_HIP")
+# set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} ${TF_COMPILE_FLAGS} -DTENSORFLOW_USE_ROCM=1 -DHIP_PLATFORM=AMD -DEIGEN_USE_HIP")
 
 # setting output folder
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -114,15 +112,15 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
-    ${CUDA_INCLUDE_DIRS}
-    ${NCCL_INC_PATHS}
+    ${HIP_INCLUDE_DIRS}
+    ${RCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}
 )
 
 
 # libs
 link_directories(
-    ${NCCL_LIB_PATHS}
+    ${RCCL_LIB_PATHS}
     ${TF_LINK_DIR}/
 )
 
@@ -177,14 +175,14 @@ file(GLOB test_op
 
 # build dynamic lib
 add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
-target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES})
+target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} ${MPI_CXX_LIBRARIES})
 
 if (USE_NVTX)
     target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})
 endif()
 
-set_target_properties(sparse_operation_kit PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(sparse_operation_kit PROPERTIES CUDA_ARCHITECTURES OFF)
+set_target_properties(sparse_operation_kit PROPERTIES HIP_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(sparse_operation_kit PROPERTIES HIP_ARCHITECTURES OFF)
 
 # compile compat ops
 add_subdirectory(kit_cc_impl/operations)

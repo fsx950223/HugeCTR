@@ -58,7 +58,7 @@ class SOKBuildExtension(build_ext):
             # skip compile the source codes
             return
         
-        gpu_capabilities = ["70", "75", "80"]
+        gpu_capabilities = ["gfx908"]
         if os.getenv("SOK_COMPILE_GPU_SM"):
             gpu_capabilities = os.getenv("SOK_COMPILE_GPU_SM")
             gpu_capabilities = str(gpu_capabilities).strip().split(";")

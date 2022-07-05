@@ -29,7 +29,7 @@ set(NCCL_LIB_PATHS
     $ENV{NCCL_DIR}/lib
     )
 
-find_path(NCCL_INCLUDE_DIR NAMES nccl.h PATHS ${NCCL_INC_PATHS})
+find_path(NCCL_INCLUDE_DIR NAMES rccl.h PATHS ${NCCL_INC_PATHS})
 find_library(NCCL_LIBRARIES NAMES nccl PATHS ${NCCL_LIB_PATHS})
 
 include(FindPackageHandleStandardArgs)
