@@ -3,7 +3,7 @@ import time
 import sparse_operation_kit as sok
 import horovod.tensorflow as hvd
 import tensorflow as tf
-import nvtx
+# import nvtx
 
 
 def evaluate(model, dataset, thresholds):
@@ -150,7 +150,7 @@ class Trainer:
             decay_steps,
         )
 
-    @tf.function
+    # @tf.function
     def _step(self, samples, labels, first_batch):
         self._lr_scheduler()
 

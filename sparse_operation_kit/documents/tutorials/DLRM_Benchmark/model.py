@@ -5,7 +5,10 @@ from typing import Dict, List, Optional
 import sparse_operation_kit as sok
 import tensorflow as tf
 import numpy as np
+# sok_compat_ops = tf.load_op_library('/usr/local/lib/python3.6/dist-packages/merlin_sok-1.1.3-py3.6-linux-x86_64.egg/sparse_operation_kit/lib/libsparse_operation_kit_compat_ops.so')
 
+# for op in dir(sok_compat_ops):
+#    print(op)
 try:
     from tensorflow_dot_based_interact.python.ops import dot_based_interact_ops
 except:
@@ -254,7 +257,7 @@ class DLRM(tf.keras.models.Model):
         #     dense_input = tf.cast(dense_input, tf.float16)
         dense_embedding_vec = self._bottom_stack(dense_input)
         sparse_embeddings = self._embedding_layer(inputs[1], training=training, compress=self._compress)
-
+        
         if not self._use_cuda_interact:
             sparse_embeddings = tf.split(sparse_embeddings,
                                         num_or_size_splits=len(self._vocab_sizes),
