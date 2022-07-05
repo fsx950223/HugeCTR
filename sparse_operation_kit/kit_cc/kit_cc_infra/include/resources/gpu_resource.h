@@ -17,10 +17,10 @@
 #ifndef GPU_RESOURCE_H
 #define GPU_RESOURCE_H
 
-#include <cuda_runtime.h>
-#include <curand.h>
-#include <cusparse.h>
-#include <nccl.h>
+#include <hip/hip_runtime.h>
+#include <hiprand/hiprand.h>
+#include <hipsparse.h>
+#include <rccl.h>
 
 #include <memory>
 
@@ -32,11 +32,11 @@ class GpuResource {
  private:
   const size_t local_device_id_;
   const size_t global_device_id_;
-  cudaStream_t computation_stream_;  // this is created by SOK
-  cudaStream_t framework_stream_;    // this is owned by DL framework, for example, tensorflow
-  curandGenerator_t replica_uniform_curand_generator_;
-  curandGenerator_t replica_variant_curand_generator_;
-  cusparseHandle_t replica_cusparse_handle_;
+  hipStream_t computation_stream_;  // this is created by SOK
+  hipStream_t framework_stream_;    // this is owned by DL framework, for example, tensorflow
+  hiprandGenerator_t replica_uniform_curand_generator_;
+  hiprandGenerator_t replica_variant_curand_generator_;
+  hipsparseHandle_t replica_cusparse_handle_;
   ncclComm_t nccl_comm_;
   int32_t sm_count_;
   int32_t cc_major_;
@@ -51,7 +51,7 @@ class GpuResource {
 
   GpuResource(const size_t local_device_id, const size_t global_device_id,
               const uint64_t replica_uniform_seed, const uint64_t replica_variant_seed,
-              const ncclComm_t& nccl_comm, const cudaStream_t& cuda_stream);
+              const ncclComm_t& nccl_comm, const hipStream_t& hip_stream);
 
  public:
   GpuResource(const GpuResource&) = delete;
@@ -63,21 +63,21 @@ class GpuResource {
                                              const uint64_t replica_uniform_seed,
                                              const uint64_t replica_variant_seed,
                                              const ncclComm_t& nccl_comm,
-                                             const cudaStream_t& cuda_stream);
+                                             const hipStream_t& hip_stream);
 
   size_t get_local_device_id() const;
   size_t get_global_device_id() const;
-  cudaStream_t& get_stream();
-  cudaStream_t& get_framework_stream();
+  hipStream_t& get_stream();
+  hipStream_t& get_framework_stream();
   size_t get_sm_count() const;
   size_t get_max_smem_size_per_sm() const;
   size_t get_warp_size() const;
-  const curandGenerator_t& get_variant_curand_gen() const;
-  const curandGenerator_t& get_uniform_curand_gen() const;
+  const hiprandGenerator_t& get_variant_curand_gen() const;
+  const hiprandGenerator_t& get_uniform_curand_gen() const;
   const ncclComm_t& get_nccl() const;
-  const cusparseHandle_t& get_cusparse() const;
+  const hipsparseHandle_t& get_cusparse() const;
 
-  void sync_gpu_via_nccl(const cudaStream_t& stream) const;
+  void sync_gpu_via_nccl(const hipStream_t& stream) const;
 
   void event_record(EventRecordType event_record_type, const std::string event_name);
 };

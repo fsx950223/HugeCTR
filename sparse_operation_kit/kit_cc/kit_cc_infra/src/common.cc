@@ -128,7 +128,7 @@ bool file_exist(const std::string filename) {
 
 namespace HugeCTR {
 
-CudaDeviceContext::CudaDeviceContext() { CK_CUDA(cudaGetDevice(&original_device_)); }
+CudaDeviceContext::CudaDeviceContext() { CK_CUDA(hipGetDevice(&original_device_)); }
 
 CudaDeviceContext::CudaDeviceContext(int32_t device) : CudaDeviceContext() {
   if (device != original_device_) {
@@ -138,6 +138,6 @@ CudaDeviceContext::CudaDeviceContext(int32_t device) : CudaDeviceContext() {
 
 CudaDeviceContext::~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
-void CudaDeviceContext::set_device(int32_t device) const { CK_CUDA(cudaSetDevice(device)); }
+void CudaDeviceContext::set_device(int32_t device) const { CK_CUDA(hipSetDevice(device)); }
 
 }  // namespace HugeCTR

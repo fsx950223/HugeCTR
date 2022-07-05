@@ -30,18 +30,18 @@ class NvHashTable : public HashTable {
  public:
   static std::shared_ptr<NvHashTable<KeyType, ValType>> create(size_t capacity, size_t count = 0);
 
-  virtual size_t get_and_add_value_head(size_t counter_add, cudaStream_t stream) override;
+  virtual size_t get_and_add_value_head(size_t counter_add, hipStream_t stream) override;
   virtual void get(const void *d_keys, void *d_vals, size_t len,
-                   cudaStream_t stream) const override;
+                   hipStream_t stream) const override;
   virtual void get_insert(const void *d_keys, void *d_vals, size_t len,
-                          cudaStream_t stream) override;
+                          hipStream_t stream) override;
   virtual void insert(const void *d_keys, const void *d_vals, size_t len,
-                      cudaStream_t stream) override;
-  virtual size_t get_size(cudaStream_t stream) const override;
-  virtual size_t get_capacity(cudaStream_t stream) const override;
-  virtual size_t get_value_head(cudaStream_t stream) const override;
+                      hipStream_t stream) override;
+  virtual size_t get_size(hipStream_t stream) const override;
+  virtual size_t get_capacity(hipStream_t stream) const override;
+  virtual size_t get_value_head(hipStream_t stream) const override;
   virtual void dump(void *d_key, void *d_val, size_t *d_dump_counter,
-                    cudaStream_t stream) const override;
+                    hipStream_t stream) const override;
   virtual bool identical_mapping() const override;
 
  private:

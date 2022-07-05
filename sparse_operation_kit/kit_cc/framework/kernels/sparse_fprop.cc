@@ -19,7 +19,7 @@
 // #if defined(SOK_ASYNC) && defined(ASYNC_OP)
 #ifdef SOK_ASYNC
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
-#include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/stream_executor/rocm/rocm_activation.h"
 #endif
 #include <exception>
 
@@ -29,7 +29,7 @@ using CPUDevice = Eigen::ThreadPoolDevice;
 
 // #if defined(SOK_ASYNC) && defined(ASYNC_OP)
 #ifdef SOK_ASYNC
-using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
+using ScopedActivateExecutorContext = stream_executor::rocm::ScopedActivateExecutorContext;
 
 template <typename Device>
 class PluginSparseFpropOp : public AsyncOpKernel {

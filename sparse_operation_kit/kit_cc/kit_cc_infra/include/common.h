@@ -17,7 +17,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <nccl.h>
+#include <rccl.h>
 
 #include <cstdint>
 #include <ctime>
@@ -43,33 +43,33 @@ namespace SparseOperationKit {
 
 #define CK_CUDA(cmd)                                                            \
   do {                                                                          \
-    cudaError_t r = (cmd);                                                      \
-    if (r != cudaSuccess) {                                                     \
-      throw std::runtime_error(ErrorBase + std::string(cudaGetErrorString(r))); \
+    hipError_t r = (cmd);                                                      \
+    if (r != hipSuccess) {                                                     \
+      throw std::runtime_error(ErrorBase + std::string(hipGetErrorString(r))); \
     }                                                                           \
   } while (0)
 
 #define CK_CUDA_MSG(cmd, msg)                                                                      \
   do {                                                                                             \
-    cudaError_t r = (cmd);                                                                         \
-    if (r != cudaSuccess) {                                                                        \
-      throw std::runtime_error(ErrorBase + std::string(msg) + std::string(cudaGetErrorString(r))); \
+    hipError_t r = (cmd);                                                                         \
+    if (r != hipSuccess) {                                                                        \
+      throw std::runtime_error(ErrorBase + std::string(msg) + std::string(hipGetErrorString(r))); \
     }                                                                                              \
   } while (0)
 
 #define CK_CURAND(cmd)                                         \
   do {                                                         \
-    curandStatus_t r = (cmd);                                  \
-    if (r != CURAND_STATUS_SUCCESS) {                          \
+    hiprandStatus_t r = (cmd);                                  \
+    if (r != HIPRAND_STATUS_SUCCESS) {                          \
       throw std::runtime_error(ErrorBase + std::to_string(r)); \
     }                                                          \
   } while (0)
 
 #define CK_CUSPARSE(cmd)                                                                \
   do {                                                                                  \
-    cusparseStatus_t error = (cmd);                                                     \
-    if (error != CUSPARSE_STATUS_SUCCESS) {                                             \
-      throw std::runtime_error(ErrorBase + std::string(cusparseGetErrorString(error))); \
+    hipsparseStatus_t error = (cmd);                                                     \
+    if (error != HIPSPARSE_STATUS_SUCCESS) {                                             \
+      throw std::runtime_error(ErrorBase); \
     }                                                                                   \
   } while (0)
 
@@ -91,16 +91,18 @@ namespace SparseOperationKit {
 
 namespace {
 inline std::string filter_path(const std::string& path) {
-  auto find_str = [](const std::string input, const char* pattern) {
-    std::regex reg(pattern);
-    std::smatch result;
-    if (std::regex_search(input, result, reg))
-      return std::string(result.str());
-    else
-      throw std::runtime_error(ErrorBase + "Filtering path faild.");
-  };
+
+  const static std::string skbuild_file_prefix = "../../../";
+  if (path.rfind(skbuild_file_prefix, 0) == 0) {
+    return "sparse_operation_kit/" + path.substr(skbuild_file_prefix.size());
+  }
   constexpr char pattern[] = "sparse_operation_kit.*$";
-  return find_str(path, pattern);
+  const static std::regex reg(pattern);
+  std::smatch result;
+  if (std::regex_search(path, result, reg))
+    return std::string(result.str());
+  else
+    return path;
 }
 }  // anonymous namespace
 
@@ -178,7 +180,7 @@ bool file_exist(const std::string filename);
 void delete_file(const std::string filename);
 
 template <typename T>
-void check_numerics(const T* data, uint32_t size, cudaStream_t& stream);
+void check_numerics(const T* data, uint32_t size, hipStream_t& stream);
 
 }  // namespace SparseOperationKit
 

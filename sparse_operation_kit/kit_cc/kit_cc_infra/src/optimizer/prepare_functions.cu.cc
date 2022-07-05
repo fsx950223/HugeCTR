@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -29,10 +30,10 @@ __global__ void gen_position_for_indices_kernel(const int64_t* indices, const si
 }
 
 void gen_position_for_indices(const int64_t* indices, const size_t elem_num, int64_t* positions,
-                              cudaStream_t stream) {
+                              hipStream_t stream) {
   size_t block_size = 64;
   size_t grid_size = (block_size + elem_num - 1) / block_size;
-  gen_position_for_indices_kernel<<<grid_size, block_size, 0, stream>>>(indices, elem_num,
+  hipLaunchKernelGGL(gen_position_for_indices_kernel, grid_size, block_size, 0, stream, indices, elem_num,
                                                                         positions);
 }
 
@@ -55,11 +56,11 @@ __global__ void gen_unique_flags_for_indices_kernel(const int64_t* indices, cons
 }
 
 void gen_unique_flags_for_indices(const int64_t* indices, const size_t elem_num, uint32_t* flags,
-                                  cudaStream_t stream) {
+                                  hipStream_t stream) {
   constexpr size_t max_grid_size = 384;
   size_t block_size = 256;
   size_t grid_size = std::min(max_grid_size, (elem_num - 1) / block_size + 1);
-  gen_unique_flags_for_indices_kernel<<<grid_size, block_size, 0, stream>>>(indices, elem_num,
+  hipLaunchKernelGGL(gen_unique_flags_for_indices_kernel, grid_size, block_size, 0, stream, indices, elem_num,
                                                                             flags);
 }
 
@@ -81,11 +82,11 @@ __global__ void gen_unique_indexes_for_indices_kernel(const uint32_t* flags,
 
 void gen_unique_indexes_for_indices(const uint32_t* flags, const uint32_t* prefix_sums,
                                     const size_t elem_num, size_t* indexes,
-                                    uint32_t* num_of_uniques, cudaStream_t stream) {
+                                    uint32_t* num_of_uniques, hipStream_t stream) {
   constexpr size_t max_grid_size = 384;
   size_t block_size = 256;
   size_t grid_size = std::min(max_grid_size, (elem_num - 1) / block_size + 1);
-  gen_unique_indexes_for_indices_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(gen_unique_indexes_for_indices_kernel, grid_size, block_size, 0, stream, 
       flags, prefix_sums, elem_num, indexes, num_of_uniques);
 }
 

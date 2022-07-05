@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -120,7 +121,7 @@ class DenseGather : public EmbeddingLookuper {
         /*indices=*/mapped_indices_buf_[local_replica_id].get_ptr(),
         /*num_indices=*/h_local_nnz,
         /*outputs=*/gathered_embeddings_buf_[local_replica_id].get_ptr());
-    CK_CUDA(cudaGetLastError());
+    CK_CUDA(hipGetLastError());
 
     // step 3: set the output of embedding lookuper
     replica_context->set_output("replica_gathered_embeddings",
@@ -143,9 +144,9 @@ class DenseGather : public EmbeddingLookuper {
     auto &replica_value_index_tensor = replica_context->output("value_index_tensor");
 
     // FIXME: what if sizeof(size_t) != sizeof(int64_t)
-    CK_CUDA(cudaMemcpyAsync(replica_value_index_tensor->GetPtrWithType<int64_t>(),
+    CK_CUDA(hipMemcpyAsync(replica_value_index_tensor->GetPtrWithType<int64_t>(),
                             mapped_indices_buf_[local_replica_id].get_ptr(),
-                            sizeof(size_t) * h_local_nnz, cudaMemcpyDeviceToDevice,
+                            sizeof(size_t) * h_local_nnz, hipMemcpyDeviceToDevice,
                             local_gpu->get_stream()));
   }
 

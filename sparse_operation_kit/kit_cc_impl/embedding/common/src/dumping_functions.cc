@@ -72,12 +72,12 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
     device_context.set_device(local_gpu->get_local_device_id());
 
     if (0 == worker_id && 0 == dev_id) {  // chief worker and chief GPU
-      CK_CUDA(cudaMalloc(&d_global_max_count, sizeof(size_t) * 1));
-      CK_CUDA(cudaMalloc(&d_count_aggregation, sizeof(size_t) * worker_num * local_gpu_count));
+      CK_CUDA(hipMalloc(&d_global_max_count, sizeof(size_t) * 1));
+      CK_CUDA(hipMalloc(&d_count_aggregation, sizeof(size_t) * worker_num * local_gpu_count));
     }
-    CK_CUDA(cudaMalloc(&d_count[dev_id], sizeof(size_t) * 1));
-    CK_CUDA(cudaMemcpyAsync(d_count[dev_id], &count[dev_id], sizeof(size_t) * 1,
-                            cudaMemcpyHostToDevice, local_gpu->get_stream()));
+    CK_CUDA(hipMalloc(&d_count[dev_id], sizeof(size_t) * 1));
+    CK_CUDA(hipMemcpyAsync(d_count[dev_id], &count[dev_id], sizeof(size_t) * 1,
+                            hipMemcpyHostToDevice, local_gpu->get_stream()));
   }  // for dev_id in local_gpu_count
 
   resource_mgr->sync_all_workers();
@@ -112,14 +112,14 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
 
     // in cheif worker, the local_worker_max_count equals to global_worker_max_count
     local_worker_max_count = 0;
-    CK_CUDA(cudaMemcpyAsync(&local_worker_max_count, d_global_max_count, sizeof(size_t) * 1,
-                            cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+    CK_CUDA(hipMemcpyAsync(&local_worker_max_count, d_global_max_count, sizeof(size_t) * 1,
+                            hipMemcpyDeviceToHost, local_gpu->get_stream()));
 
     // in cheif worker, count array contains the number of valid keys for each GPU.
-    CK_CUDA(cudaMemcpyAsync(count.get(), d_count_aggregation,
-                            sizeof(size_t) * worker_num * local_gpu_count, cudaMemcpyDeviceToHost,
+    CK_CUDA(hipMemcpyAsync(count.get(), d_count_aggregation,
+                            sizeof(size_t) * worker_num * local_gpu_count, hipMemcpyDeviceToHost,
                             local_gpu->get_stream()));
-    CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
+    CK_CUDA(hipStreamSynchronize(local_gpu->get_stream()));
   }  // chief worker
 
   // step 3: allocate temp spaces for dump parameters from GPU to CPU
@@ -131,11 +131,11 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
     const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
     device_context.set_device(local_gpu->get_local_device_id());
 
-    CK_CUDA(cudaMalloc(&d_hash_table_key[dev_id], local_worker_max_count * sizeof(KeyType)));
-    CK_CUDA(cudaMalloc(&d_hash_table_value_index[dev_id], local_worker_max_count * sizeof(size_t)));
-    CK_CUDA(cudaMalloc(&d_hash_table_value[dev_id],
+    CK_CUDA(hipMalloc(&d_hash_table_key[dev_id], local_worker_max_count * sizeof(KeyType)));
+    CK_CUDA(hipMalloc(&d_hash_table_value_index[dev_id], local_worker_max_count * sizeof(size_t)));
+    CK_CUDA(hipMalloc(&d_hash_table_value[dev_id],
                        local_worker_max_count * embedding_vector_size * sizeof(float)));
-    CK_CUDA(cudaMalloc(&d_dump_counter[dev_id], 1 * sizeof(size_t)));
+    CK_CUDA(hipMalloc(&d_dump_counter[dev_id], 1 * sizeof(size_t)));
   }  // for dev_id in local_gpu_count
   resource_mgr->sync_all_workers();
 
@@ -165,13 +165,13 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
                           /*global_replica_id=*/local_gpu->get_global_device_id(),
                           /*global_gpu_count=*/resource_mgr->get_global_gpu_count(),
                           local_gpu->get_stream());
-      CK_CUDA(cudaGetLastError());
+      CK_CUDA(hipGetLastError());
 
       // copy embedding values from embedding_table_tensor
-      CK_CUDA(cudaMemcpyAsync(d_hash_table_value[dev_id],
+      CK_CUDA(hipMemcpyAsync(d_hash_table_value[dev_id],
                               param->get_embedding_table_tensor(dev_id)->GetPtrWithType<float>(),
                               sizeof(float) * hashtable_size * embedding_vector_size,
-                              cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
+                              hipMemcpyDeviceToDevice, local_gpu->get_stream()));
     }  // get keys & embedding_values
   }    // for dev_id in local_gpu_count
 
@@ -213,14 +213,14 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
       for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
         const size_t pair_count = count[worker * local_gpu_count + dev_id];
         const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
-        CK_CUDA(cudaMemcpyAsync(keys->GetPtrWithType<KeyType>() + host_num_keys_offset,
+        CK_CUDA(hipMemcpyAsync(keys->GetPtrWithType<KeyType>() + host_num_keys_offset,
                                 d_hash_table_key[dev_id], pair_count * sizeof(KeyType),
-                                cudaMemcpyDeviceToHost, local_gpu->get_stream()));
-        CK_CUDA(cudaMemcpyAsync(embedding_values->GetPtrWithType<float>() +
+                                hipMemcpyDeviceToHost, local_gpu->get_stream()));
+        CK_CUDA(hipMemcpyAsync(embedding_values->GetPtrWithType<float>() +
                                     host_num_keys_offset * embedding_vector_size,
                                 d_hash_table_value[dev_id],
                                 pair_count * embedding_vector_size * sizeof(float),
-                                cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+                                hipMemcpyDeviceToHost, local_gpu->get_stream()));
         host_num_keys_offset += pair_count;
       }  // for dev_id in local_gpu_count
       resource_mgr->sync_local_gpus();
@@ -265,14 +265,14 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
     device_context.set_device(local_gpu->get_local_device_id());
 
     if (0 == worker_id && 0 == dev_id) {
-      CK_CUDA(cudaFree(d_global_max_count));
-      CK_CUDA(cudaFree(d_count_aggregation));
+      CK_CUDA(hipFree(d_global_max_count));
+      CK_CUDA(hipFree(d_count_aggregation));
     }
-    CK_CUDA(cudaFree(d_count[dev_id]));
-    CK_CUDA(cudaFree(d_hash_table_key[dev_id]));
-    CK_CUDA(cudaFree(d_hash_table_value_index[dev_id]));
-    CK_CUDA(cudaFree(d_hash_table_value[dev_id]));
-    CK_CUDA(cudaFree(d_dump_counter[dev_id]));
+    CK_CUDA(hipFree(d_count[dev_id]));
+    CK_CUDA(hipFree(d_hash_table_key[dev_id]));
+    CK_CUDA(hipFree(d_hash_table_value_index[dev_id]));
+    CK_CUDA(hipFree(d_hash_table_value[dev_id]));
+    CK_CUDA(hipFree(d_dump_counter[dev_id]));
   }  // for dev_id in local_gpu_count
 }
 
@@ -333,15 +333,15 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
     const auto &local_gpu = resource_mgr->get_local_gpu(id);
     context.set_device(local_gpu->get_local_device_id());
 
-    CK_CUDA(cudaMalloc(&d_hash_table_value_index_chunk_per_gpu[id],
+    CK_CUDA(hipMalloc(&d_hash_table_value_index_chunk_per_gpu[id],
                        hash_table_value_index_chunk_size_in_bytes));
-    CK_CUDA(cudaMemsetAsync(d_hash_table_value_index_chunk_per_gpu[id], 0,
+    CK_CUDA(hipMemsetAsync(d_hash_table_value_index_chunk_per_gpu[id], 0,
                             hash_table_value_index_chunk_size_in_bytes, local_gpu->get_stream()));
     CK_CUDA(
-        cudaMallocHost(&h_hash_table_key_chunk_per_gpu[id], hash_table_key_chunk_size_in_bytes));
-    CK_CUDA(cudaMalloc(&d_hash_table_key_chunk_per_gpu[id], hash_table_key_chunk_size_in_bytes));
-    CK_CUDA(cudaMallocHost(&h_hash_table_value_chunk_per_gpu[id],
-                           hash_table_value_chunk_size_in_bytes));
+        hipHostMalloc((void**)&h_hash_table_key_chunk_per_gpu[id], hash_table_key_chunk_size_in_bytes, hipHostMallocNumaUser));
+    CK_CUDA(hipMalloc((void**)&d_hash_table_key_chunk_per_gpu[id], hash_table_key_chunk_size_in_bytes));
+    CK_CUDA(hipHostMalloc((void**)&h_hash_table_value_chunk_per_gpu[id],
+                           hash_table_value_chunk_size_in_bytes, hipHostMallocNumaUser));
   }  // for id in local_gpu_count
   resource_mgr->sync_local_gpus();
 
@@ -380,9 +380,9 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
       context.set_device(local_gpu->get_local_device_id());
 
       const size_t tile_count = tile_counter_in_chunk_per_gpu[id];
-      CK_CUDA(cudaMemcpyAsync(d_hash_table_key_chunk_per_gpu[id],
+      CK_CUDA(hipMemcpyAsync(d_hash_table_key_chunk_per_gpu[id],
                               h_hash_table_key_chunk_per_gpu[id], tile_count * sizeof(KeyType),
-                              cudaMemcpyHostToDevice, local_gpu->get_stream()));
+                              hipMemcpyHostToDevice, local_gpu->get_stream()));
 
       const size_t value_index_offset = tile_counter_per_gpu[id];
       size_t *value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
@@ -406,8 +406,8 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
       const float *src_buf = h_hash_table_value_chunk_per_gpu[id];
       float *dst_buf =
           param->get_embedding_table_tensor(id)->GetPtrWithType<float>() + value_chunk_offset;
-      CK_CUDA(cudaMemcpyAsync(dst_buf, src_buf, value_chunk_size * sizeof(float),
-                              cudaMemcpyHostToDevice, local_gpu->get_stream()));
+      CK_CUDA(hipMemcpyAsync(dst_buf, src_buf, value_chunk_size * sizeof(float),
+                              hipMemcpyHostToDevice, local_gpu->get_stream()));
     }  // for id in local_gpu_count
 
     resource_mgr->sync_local_gpus();
@@ -440,8 +440,8 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
 
       // copy hashtable key from CPU to GPU
       key_dst_buf = d_hash_table_key_chunk_per_gpu[local_gpu_id];
-      CK_CUDA(cudaMemcpyAsync(key_dst_buf, &key, hash_table_key_tile_size_in_bytes,
-                              cudaMemcpyHostToDevice, local_gpu->get_stream()));
+      CK_CUDA(hipMemcpyAsync(key_dst_buf, &key, hash_table_key_tile_size_in_bytes,
+                              hipMemcpyHostToDevice, local_gpu->get_stream()));
 
       // set value_index
       const size_t value_index_offset = tile_counter_per_gpu[local_gpu_id];
@@ -459,9 +459,9 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
       const size_t value_offset = tile_counter_per_gpu[local_gpu_id] * embedding_vec_size;
       value_dst_buf =
           param->get_embedding_table_tensor(local_gpu_id)->GetPtrWithType<float>() + value_offset;
-      CK_CUDA(cudaMemcpyAsync(
+      CK_CUDA(hipMemcpyAsync(
           value_dst_buf, embedding_ptr + (loop_num * chunk_size + i) * embedding_vec_size,
-          hash_table_value_tile_size_in_bytes, cudaMemcpyHostToDevice, local_gpu->get_stream()));
+          hash_table_value_tile_size_in_bytes, hipMemcpyHostToDevice, local_gpu->get_stream()));
 
       // set counter
       tile_counter_per_gpu[local_gpu_id] += hash_table_key_tile_size;
@@ -478,10 +478,10 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
   for (size_t id = 0; id < local_gpu_count; id++) {
     context.set_device(resource_mgr->get_local_gpu(id)->get_local_device_id());
 
-    CK_CUDA(cudaFree(d_hash_table_value_index_chunk_per_gpu[id]));
-    CK_CUDA(cudaFreeHost(h_hash_table_key_chunk_per_gpu[id]));
-    CK_CUDA(cudaFree(d_hash_table_key_chunk_per_gpu[id]));
-    CK_CUDA(cudaFreeHost(h_hash_table_value_chunk_per_gpu[id]));
+    CK_CUDA(hipFree(d_hash_table_value_index_chunk_per_gpu[id]));
+    CK_CUDA(hipHostFree(h_hash_table_key_chunk_per_gpu[id]));
+    CK_CUDA(hipFree(d_hash_table_key_chunk_per_gpu[id]));
+    CK_CUDA(hipHostFree(h_hash_table_value_chunk_per_gpu[id]));
   }
 }
 

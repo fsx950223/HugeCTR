@@ -64,7 +64,7 @@ class HashTable {
    * @param len the number of <key,value> pairs to be inserted into the hash table.
    * @param stream the cuda stream for this operation.
    */
-  void insert(const KeyType* d_keys, const ValType* d_vals, size_t len, cudaStream_t stream);
+  void insert(const KeyType* d_keys, const ValType* d_vals, size_t len, hipStream_t stream);
 
   /**
    * The get function for hash table. "get" means fetching some values indexed
@@ -74,7 +74,7 @@ class HashTable {
    * @param len the number of <key,value> pairs to be got from the hash table.
    * @param stream the cuda stream for this operation.
    */
-  void get(const KeyType* d_keys, ValType* d_vals, size_t len, cudaStream_t stream) const;
+  void get(const KeyType* d_keys, ValType* d_vals, size_t len, hipStream_t stream) const;
 
   /**
    * The set function for hash table. "set" means using the given values to
@@ -84,7 +84,7 @@ class HashTable {
    * @param len the number of <key,value> pairs to be set to the hash table.
    * @param stream the cuda stream for this operation.
    */
-  void set(const KeyType* d_keys, const ValType* d_vals, size_t len, cudaStream_t stream);
+  void set(const KeyType* d_keys, const ValType* d_vals, size_t len, hipStream_t stream);
 
   /**
    * The get_insert function for hash table. "get_insert" means if we can find
@@ -97,7 +97,7 @@ class HashTable {
    * @param len the number of <key,value> pairs to be got or inserted into the hash table.
    * @param stream the cuda stream for this operation.
    */
-  void get_insert(const KeyType* d_keys, ValType* d_vals, size_t len, cudaStream_t stream);
+  void get_insert(const KeyType* d_keys, ValType* d_vals, size_t len, hipStream_t stream);
 
   /**
    * The dump function for hash table. "dump" means getting some of the <key,value>
@@ -109,14 +109,14 @@ class HashTable {
    * @param d_dump_counter a temp device pointer to store the dump counter.
    * @param stream the cuda stream for this operation.
    */
-  void dump(KeyType* d_key, ValType* d_val, size_t* d_dump_counter, cudaStream_t stream) const;
+  void dump(KeyType* d_key, ValType* d_val, size_t* d_dump_counter, hipStream_t stream) const;
 
   /**
    * Get the current size of the hash table. Size is also known as the number
    * of <key,value> pairs.
    * @param stream the cuda stream for this operation.
    */
-  size_t get_size(cudaStream_t stream) const;
+  size_t get_size(hipStream_t stream) const;
 
   /**
    * Get the capacity of the hash table. "capacity" is known as the number of
@@ -128,14 +128,14 @@ class HashTable {
    * Get the head of the value from the device counter. It's equal to the
    * number of the <key,value> pairs in the hash table.
    */
-  size_t get_value_head(cudaStream_t stream) const;
+  size_t get_value_head(hipStream_t stream) const;
 
   /**
    * Set the head of the value. This will reset a new value to the device counter.
    * @param counter_value the new counter value to be set.
    */
-  void set_value_head(size_t counter_value, cudaStream_t stream) {
-    CK_CUDA(cudaMemcpyAsync(d_counter_, &counter_value, sizeof(size_t), cudaMemcpyHostToDevice,
+  void set_value_head(size_t counter_value, hipStream_t stream) {
+    CK_CUDA(hipMemcpyAsync(d_counter_, &counter_value, sizeof(size_t), hipMemcpyHostToDevice,
                             stream));
   }
 
@@ -144,21 +144,21 @@ class HashTable {
    * current value of the device counter.
    * @param counter_add the new counter value to be added.
    */
-  size_t get_and_add_value_head(size_t counter_add, cudaStream_t stream) {
+  size_t get_and_add_value_head(size_t counter_add, hipStream_t stream) {
     size_t counter;
     CK_CUDA(
-        cudaMemcpyAsync(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost, stream));
-    CK_CUDA(cudaStreamSynchronize(stream));
+        hipMemcpyAsync(&counter, d_counter_, sizeof(*d_counter_), hipMemcpyDeviceToHost, stream));
+    CK_CUDA(hipStreamSynchronize(stream));
     counter += counter_add;
     CK_CUDA(
-        cudaMemcpyAsync(d_counter_, &counter, sizeof(*d_counter_), cudaMemcpyHostToDevice, stream));
+        hipMemcpyAsync(d_counter_, &counter, sizeof(*d_counter_), hipMemcpyHostToDevice, stream));
     return counter;
   }
 
   /**
    * Clear the hash table
    */
-  void clear(cudaStream_t stream);
+  void clear(hipStream_t stream);
 
  private:
   static const int BLOCK_SIZE_ =

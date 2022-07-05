@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -64,25 +65,25 @@ std::unique_ptr<Divisive<KeyType, ValType>> Divisive<KeyType, ValType>::create(
 
 template <typename KeyType, typename ValType>
 void Divisive<KeyType, ValType>::operator()(const void *d_keys, void *d_vals, const size_t len,
-                                            cudaStream_t stream) {
+                                            hipStream_t stream) {
   if (0 == len) return;
 
   const KeyType *_d_keys = reinterpret_cast<const KeyType *>(d_keys);
   ValType *_d_vals = reinterpret_cast<ValType *>(d_vals);
   constexpr uint32_t block_size = 1024u;
   const uint32_t grid_size = (len + block_size - 1) / block_size;
-  divisive_kernel<<<grid_size, block_size, 0, stream>>>(_d_keys, _d_vals, len, interval_,
+  hipLaunchKernelGGL(divisive_kernel, grid_size, block_size, 0, stream, _d_keys, _d_vals, len, interval_,
                                                         capacity_);
 }
 
 template <typename KeyType, typename ValType>
 void Divisive<KeyType, ValType>::dump(void *d_keys, void *d_vals, size_t *d_dump_counter,
-                                      cudaStream_t stream) const {
+                                      hipStream_t stream) const {
   KeyType *_d_keys = reinterpret_cast<KeyType *>(d_keys);
   ValType *_d_vals = reinterpret_cast<ValType *>(d_vals);
   constexpr uint32_t block_size = 1024u;
   const uint32_t grid_size = (capacity_ + block_size - 1) / block_size;
-  divisive_dump_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(divisive_dump_kernel, grid_size, block_size, 0, stream, 
       _d_keys, _d_vals, d_dump_counter, interval_, capacity_, global_replica_id_);
 }
 
@@ -110,51 +111,51 @@ std::shared_ptr<SimpleHashtable<KeyType, ValType>> SimpleHashtable<KeyType, ValT
 
 template <typename KeyType, typename ValType>
 size_t SimpleHashtable<KeyType, ValType>::get_and_add_value_head(size_t counter_add,
-                                                                 cudaStream_t stream) {
+                                                                 hipStream_t stream) {
   // no internal counter, so that always return 0;
   return 0ul;
 }
 
 template <typename KeyType, typename ValType>
 void SimpleHashtable<KeyType, ValType>::get(const void *d_keys, void *d_vals, size_t len,
-                                            cudaStream_t stream) const {
+                                            hipStream_t stream) const {
   // delegate this job to hash_functor
   (*hash_functor_)(d_keys, d_vals, len, stream);
 }
 
 template <typename KeyType, typename ValType>
 void SimpleHashtable<KeyType, ValType>::get_insert(const void *d_keys, void *d_vals, size_t len,
-                                                   cudaStream_t stream) {
+                                                   hipStream_t stream) {
   return this->get(d_keys, d_vals, len, stream);
 }
 
 template <typename KeyType, typename ValType>
 void SimpleHashtable<KeyType, ValType>::insert(const void *d_keys, const void *d_vals, size_t len,
-                                               cudaStream_t stream) {
+                                               hipStream_t stream) {
   // do nothing
   return;
 }
 
 template <typename KeyType, typename ValType>
-size_t SimpleHashtable<KeyType, ValType>::get_size(cudaStream_t stream) const {
+size_t SimpleHashtable<KeyType, ValType>::get_size(hipStream_t stream) const {
   // return its capacity
   return capacity_;
 }
 
 template <typename KeyType, typename ValType>
-size_t SimpleHashtable<KeyType, ValType>::get_capacity(cudaStream_t stream) const {
+size_t SimpleHashtable<KeyType, ValType>::get_capacity(hipStream_t stream) const {
   // return its capacity
   return capacity_;
 }
 
 template <typename KeyType, typename ValType>
-size_t SimpleHashtable<KeyType, ValType>::get_value_head(cudaStream_t stream) const {
+size_t SimpleHashtable<KeyType, ValType>::get_value_head(hipStream_t stream) const {
   return this->get_size(stream);
 }
 
 template <typename KeyType, typename ValType>
 void SimpleHashtable<KeyType, ValType>::dump(void *d_key, void *d_val, size_t *d_dump_counter,
-                                             cudaStream_t stream) const {
+                                             hipStream_t stream) const {
   // delegate this job to hash_functor
   hash_functor_->dump(d_key, d_val, d_dump_counter, stream);
 }

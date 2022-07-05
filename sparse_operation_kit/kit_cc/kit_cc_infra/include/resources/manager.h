@@ -17,8 +17,8 @@
 #ifndef RESOURCES_MANAGER_H
 #define RESOURCES_MANAGER_H
 
-#include <cuda_runtime.h>
-#include <nccl.h>
+#include <hip/hip_runtime.h>
+#include <rccl.h>
 
 #include <atomic>
 #include <memory>
@@ -46,7 +46,7 @@ class ResourcesManager final {
   void init(const size_t global_replica_id, const size_t num_replicas_in_sync,
             const int32_t* nccl_unique_id, const uint64_t global_seed,
             const int32_t* visible_devices, const int64_t visible_device_count,
-            const cudaStream_t& tf_stream);
+            const hipStream_t& tf_stream);
 
   bool p2p_enabled(const size_t src_dev, const size_t dst_dev) const;
   bool all_p2p_enabled() const;
@@ -106,7 +106,7 @@ class ResourcesManager final {
   void create_cpu_resource(const uint64_t global_seed, const size_t num_replicas_in_sync);
   void set_visible_devices(const int32_t* visible_devices, const int64_t visible_device_count);
   void create_gpu_resource(const size_t global_replica_id, const size_t num_replicas_in_sync,
-                           const cudaStream_t& tf_stream);
+                           const hipStream_t& tf_stream);
   void enable_all_peer_access(const size_t global_replica_id);
 
   void sync_all_workers_via_mpi() const;  // synchronize all CPU-process via MPI

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -15,7 +16,7 @@
  */
 
 #include <algorithm>
-#include <cub/cub.cuh>
+#include <hipcub/hipcub.hpp>
 
 #include "optimizer/update_functions.h"
 
@@ -24,36 +25,36 @@ namespace HugeCTR {}  // namespace HugeCTR
 namespace SparseOperationKit {
 
 template <typename KeyT, typename ValueT>
-cudaError_t SortPairs(void* d_temp_storage, size_t& temp_storage_bytes, const KeyT* d_keys_in,
+hipError_t SortPairs(void* d_temp_storage, size_t& temp_storage_bytes, const KeyT* d_keys_in,
                       KeyT* d_keys_out, const ValueT* d_values_in, ValueT* d_values_out,
-                      size_t num_items, int32_t begin_bit, int32_t end_bit, cudaStream_t stream,
+                      size_t num_items, int32_t begin_bit, int32_t end_bit, hipStream_t stream,
                       bool debug_synchronous) {
-  return cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
+  return hipcub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
                                          d_values_in, d_values_out, num_items, begin_bit, end_bit,
                                          stream, debug_synchronous);
 }
 
-template cudaError_t SortPairs(void* d_temp_storage, size_t& temp_storage_bytes,
+template hipError_t SortPairs(void* d_temp_storage, size_t& temp_storage_bytes,
                                const size_t* d_keys_in, size_t* d_keys_out,
                                const int64_t* d_values_in, int64_t* d_values_out, size_t num_items,
-                               int32_t begin_bit, int32_t end_bit, cudaStream_t stream,
+                               int32_t begin_bit, int32_t end_bit, hipStream_t stream,
                                bool debug_synchronous);
-template cudaError_t SortPairs(void* d_temp_storage, size_t& temp_storage_bytes,
+template hipError_t SortPairs(void* d_temp_storage, size_t& temp_storage_bytes,
                                const int64_t* d_keys_in, int64_t* d_keys_out,
                                const int64_t* d_values_in, int64_t* d_values_out, size_t num_items,
-                               int32_t begin_bit, int32_t end_bit, cudaStream_t stream,
+                               int32_t begin_bit, int32_t end_bit, hipStream_t stream,
                                bool debug_synchronous);
 
 template <typename InputIteratorT, typename OutputIteratorT>
-cudaError_t InclusiveSum(void* d_temp_storage, size_t& temp_storage_bytes, InputIteratorT d_in,
-                         OutputIteratorT d_out, size_t num_items, cudaStream_t stream,
+hipError_t InclusiveSum(void* d_temp_storage, size_t& temp_storage_bytes, InputIteratorT d_in,
+                         OutputIteratorT d_out, size_t num_items, hipStream_t stream,
                          bool debug_synchronous) {
-  return cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items,
+  return hipcub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items,
                                        stream, debug_synchronous);
 }
 
-template cudaError_t InclusiveSum(void* d_temp_storage, size_t& temp_storage_bytes, uint32_t* d_in,
-                                  uint32_t* d_out, size_t num_items, cudaStream_t stream,
+template hipError_t InclusiveSum(void* d_temp_storage, size_t& temp_storage_bytes, uint32_t* d_in,
+                                  uint32_t* d_out, size_t num_items, hipStream_t stream,
                                   bool debug_synchronous);
 
 __device__ __forceinline__ float accumulate_gradients(const size_t* unique_indexes,
@@ -97,10 +98,10 @@ void opt_adam_update_states_global(const size_t* unique_indexes, const int64_t* 
                                    const int64_t* sorted_indices, const uint32_t unique_indices_num,
                                    const float* gradients, const size_t emb_vec_size,
                                    const float beta1, const float beta2, float* m, float* v,
-                                   cudaStream_t stream) {
+                                   hipStream_t stream) {
   size_t block_size = emb_vec_size;
   size_t grid_size = std::max(1u, unique_indices_num);
-  opt_adam_update_states_global_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(opt_adam_update_states_global_kernel, grid_size, block_size, 0, stream, 
       unique_indexes, sorted_position, sorted_indices, unique_indices_num, gradients, emb_vec_size,
       beta1, beta2, m, v);
 }
@@ -126,8 +127,8 @@ __global__ void opt_adam_update_param_global_kernel(const size_t emb_vec_size,
 void opt_adam_update_param_global(const size_t emb_vec_size, const size_t max_vocabulary_size,
                                   const float alpha_t, const float beta1, const float beta2,
                                   const float epsilon, float* m, float* v, float* embedding_table,
-                                  cudaStream_t stream) {
-  opt_adam_update_param_global_kernel<<<1024, 256, 0, stream>>>(
+                                  hipStream_t stream) {
+  hipLaunchKernelGGL(opt_adam_update_param_global_kernel, 1024, 256, 0, stream, 
       emb_vec_size, max_vocabulary_size, alpha_t, beta1, beta2, epsilon, m, v, embedding_table);
 }
 

@@ -17,8 +17,8 @@
 #ifndef INITIALIZER_INTERFACE_H
 #define INITIALIZER_INTERFACE_H
 
-#include <cuda_runtime.h>
-#include <curand.h>
+#include <hip/hip_runtime.h>
+#include <hiprand/hiprand.h>
 
 #include <memory>
 #include <string>
@@ -33,7 +33,7 @@ class Initializer {
  public:
   virtual ~Initializer() {}
   virtual void fill(std::shared_ptr<Tensor> tensor, const size_t sm_count,
-                    const curandGenerator_t& generator, const cudaStream_t& stream) = 0;
+                    const hiprandGenerator_t& generator, const hipStream_t& stream) = 0;
 
   static std::shared_ptr<Initializer> Get(const std::string initializer);
 };

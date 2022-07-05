@@ -126,7 +126,7 @@ void RawParam<KeyType, ValueType>::init(const size_t global_replica_id) {
   const auto& local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 #ifdef SOK_ASYNC
   // TODO: necessary?? the underlying buffer might be modified by framework??
-  CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+  CK_CUDA(hipStreamSynchronize(local_gpu->get_framework_stream()));
 #endif
   initializer_->fill(emb_table_tensors_interface_[local_replica_id], local_gpu->get_sm_count(),
                      local_gpu->get_variant_curand_gen(), local_gpu->get_stream());
@@ -169,13 +169,13 @@ void RawParam<KeyType, ValueType>::assign_initial_value(const size_t local_repli
 
   auto& local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 #ifdef SOK_ASYNC
-  CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+  CK_CUDA(hipStreamSynchronize(local_gpu->get_framework_stream()));
 #endif
-  CK_CUDA(cudaMemcpyAsync(embedding_table->template GetPtrWithType<ValueType>(), 
+  CK_CUDA(hipMemcpyAsync(embedding_table->template GetPtrWithType<ValueType>(), 
                           initial_value->GetPtrWithType<ValueType>(),
                           initial_value->get_size_in_bytes(), 
-                          cudaMemcpyDefault, local_gpu->get_stream()));
-  CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
+                          hipMemcpyDefault, local_gpu->get_stream()));
+  CK_CUDA(hipStreamSynchronize(local_gpu->get_stream()));
 
   set_initialized(local_replica_id);
   const size_t global_replica_id = resource_mgr_->cal_global_id_from_local_id(local_replica_id);

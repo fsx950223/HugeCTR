@@ -170,9 +170,9 @@ void GradUpdatePreparer::operator()(const std::shared_ptr<Tensor>& duplicated_in
                                  local_gpu->get_stream());
 
   // step6: copy dev_unique_indices_num to host
-  CK_CUDA(cudaMemcpyAsync(host_unique_indices_nums_[local_replica_id].get_ptr(),
+  CK_CUDA(hipMemcpyAsync(host_unique_indices_nums_[local_replica_id].get_ptr(),
                           dev_unique_indices_nums_[local_replica_id].get_ptr(),
-                          sizeof(uint32_t) * 1, cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+                          sizeof(uint32_t) * 1, hipMemcpyDeviceToHost, local_gpu->get_stream()));
   resource_mgr_->sync_gpu(local_replica_id);
 }
 

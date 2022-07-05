@@ -121,7 +121,7 @@ void ResourcesManager::set_visible_devices(const int32_t* visible_devices,
 
 void ResourcesManager::create_gpu_resource(const size_t global_replica_id,
                                            const size_t num_replicas_in_sync,
-                                           const cudaStream_t& tf_stream) {
+                                           const hipStream_t& tf_stream) {
   const size_t local_replica_id = global_replica_id % local_gpu_count_;
 
   MESSAGE("Global Replica Id: " + std::to_string(global_replica_id) + "; " +
@@ -142,7 +142,7 @@ void ResourcesManager::create_gpu_resource(const size_t global_replica_id,
 void ResourcesManager::init(const size_t global_replica_id, const size_t num_replicas_in_sync,
                             const int32_t* nccl_unique_id, const uint64_t global_seed,
                             const int32_t* visible_devices, const int64_t visible_device_count,
-                            const cudaStream_t& tf_stream) {
+                            const hipStream_t& tf_stream) {
   set_visible_devices(visible_devices, visible_device_count);
 
   set_nccl_unique_id(nccl_unique_id);
@@ -176,18 +176,18 @@ void ResourcesManager::enable_all_peer_access(const size_t global_replica_id) {
     while (!get_local_gpu(dev_id)) std::this_thread::yield();
 
     int32_t can_access_peer;
-    CK_CUDA(cudaDeviceCanAccessPeer(&can_access_peer, local_gpu->get_local_device_id(),
+    CK_CUDA(hipDeviceCanAccessPeer(&can_access_peer, local_gpu->get_local_device_id(),
                                     get_local_gpu(dev_id)->get_local_device_id()));
 
     if (1 == can_access_peer) {
       p2p_matrix_[d2local_[local_replica_id]][d2local_[dev_id]] = true;
-      cudaError_t ret = cudaDeviceEnablePeerAccess(get_local_gpu(dev_id)->get_local_device_id(), 0);
-      if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
+      hipError_t ret = hipDeviceEnablePeerAccess(get_local_gpu(dev_id)->get_local_device_id(), 0);
+      if (ret != hipSuccess && ret != hipErrorPeerAccessAlreadyEnabled) {
         CK_CUDA(ret);
       } else {
-        // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
-        // so we reset it to cudaSuccess here
-        cudaGetLastError();
+        // hipErrorPeerAccessAlreadyEnabled must not be handled as an error
+        // so we reset it to hipSuccess here
+        hipGetLastError();
       }
     }  // if 1 == can_access_peer
 
@@ -226,12 +226,12 @@ void ResourcesManager::sync_local_gpus() const {
   for (size_t dev_id = 0; dev_id < local_gpu_count_; ++dev_id) {
     const auto& local_gpu = get_local_gpu(dev_id);
     context.set_device(local_gpu->get_local_device_id());
-    CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
+    CK_CUDA(hipStreamSynchronize(local_gpu->get_stream()));
   }
 }
 
 void ResourcesManager::sync_gpu(const size_t local_dev_id) const {
-  CK_CUDA(cudaStreamSynchronize(get_local_gpu(local_dev_id)->get_stream()));
+  CK_CUDA(hipStreamSynchronize(get_local_gpu(local_dev_id)->get_stream()));
 }
 
 void ResourcesManager::sync_all_workers() const {

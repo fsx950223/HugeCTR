@@ -97,19 +97,19 @@ void UnitTester::test_all_gather_dispatcher(
   const auto host_total_num_elements = replica_context->output("host_total_num_elements");
 
   auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
-  CK_CUDA(cudaMemcpyAsync(values_out_tensor->data(), total_values->GetPtrWithType<void>(),
-                          total_values->get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+  CK_CUDA(hipMemcpyAsync(values_out_tensor->data(), total_values->GetPtrWithType<void>(),
+                          total_values->get_size_in_bytes(), hipMemcpyDeviceToDevice,
                           local_gpu->get_stream()));
-  CK_CUDA(cudaMemcpyAsync(indices_out_tensor->data(), total_row_indices->GetPtrWithType<void>(),
-                          total_row_indices->get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+  CK_CUDA(hipMemcpyAsync(indices_out_tensor->data(), total_row_indices->GetPtrWithType<void>(),
+                          total_row_indices->get_size_in_bytes(), hipMemcpyDeviceToDevice,
                           local_gpu->get_stream()));
-  CK_CUDA(cudaMemcpyAsync(num_elements_tensor->data(),
+  CK_CUDA(hipMemcpyAsync(num_elements_tensor->data(),
                           dev_total_num_elements->GetPtrWithType<void>(),
-                          dev_total_num_elements->get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                          dev_total_num_elements->get_size_in_bytes(), hipMemcpyDeviceToDevice,
                           local_gpu->get_stream()));
-  CK_CUDA(cudaMemcpyAsync(
+  CK_CUDA(hipMemcpyAsync(
       total_valid_num_tensor->data(), host_total_num_elements->GetPtrWithType<void>(),
-      host_total_num_elements->get_size_in_bytes(), cudaMemcpyDefault, local_gpu->get_stream()));
+      host_total_num_elements->get_size_in_bytes(), hipMemcpyDefault, local_gpu->get_stream()));
 #ifdef SOK_ASYNC
   resource_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                               /*event_name=*/"AllGatherUnitTest_end");
@@ -176,12 +176,12 @@ void UnitTester::test_csr_conversion_distributed(
   const auto replica_row_offset = replica_context->output("replica_row_offset");
 
   auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
-  CK_CUDA(cudaMemcpyAsync(replcia_values_tensor->data(), replica_csr_values->GetPtrWithType<void>(),
-                          replica_csr_values->get_size_in_bytes(), cudaMemcpyDefault,
+  CK_CUDA(hipMemcpyAsync(replcia_values_tensor->data(), replica_csr_values->GetPtrWithType<void>(),
+                          replica_csr_values->get_size_in_bytes(), hipMemcpyDefault,
                           local_gpu->get_stream()));
-  CK_CUDA(cudaMemcpyAsync(
+  CK_CUDA(hipMemcpyAsync(
       replica_csr_row_offsets_tensor->data(), replica_row_offset->GetPtrWithType<void>(),
-      replica_row_offset->get_size_in_bytes(), cudaMemcpyDefault, local_gpu->get_stream()));
+      replica_row_offset->get_size_in_bytes(), hipMemcpyDefault, local_gpu->get_stream()));
 #ifdef SOK_ASYNC
   resource_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                               /*event_name=*/"CSRConversionDistributedUnitTest_end");

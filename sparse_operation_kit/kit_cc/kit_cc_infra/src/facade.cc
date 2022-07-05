@@ -54,7 +54,7 @@ void Facade::get_random_seed(uint64_t* seed) { ResourcesManager::get_random_seed
 void Facade::init(const size_t global_replica_id, const size_t num_replicas_in_sync,
                   const int32_t* nccl_unique_id, const uint64_t global_seed,
                   const int32_t* visible_devices, const int64_t visible_device_count,
-                  const size_t global_batch_size, const cudaStream_t& tf_stream) {
+                  const size_t global_batch_size, const hipStream_t& tf_stream) {
   // initialize resource manager
   resources_mgr_->init(global_replica_id, num_replicas_in_sync, nccl_unique_id, global_seed,
                        visible_devices, visible_device_count, tf_stream);
@@ -492,7 +492,7 @@ void Facade::dump_to_file(
     HugeCTR::CudaDeviceContext context;
     auto& local_gpu = resources_mgr_->get_local_gpu(local_replica_id);
     context.set_device(local_gpu->get_local_device_id());
-    CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+    CK_CUDA(hipStreamSynchronize(local_gpu->get_framework_stream()));
   };
   for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++)
     resources_mgr_->push_to_threadpool(wait_framework, id);
@@ -515,7 +515,7 @@ void Facade::restore_from_file(
     HugeCTR::CudaDeviceContext context;
     auto& local_gpu = resources_mgr_->get_local_gpu(local_replica_id);
     context.set_device(local_gpu->get_local_device_id());
-    CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+    CK_CUDA(hipStreamSynchronize(local_gpu->get_framework_stream()));
   };
   for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++)
     resources_mgr_->push_to_threadpool(wait_framework, id);
@@ -548,7 +548,7 @@ void Facade::load_embedding_values(
     HugeCTR::CudaDeviceContext context;
     auto& local_gpu = resources_mgr_->get_local_gpu(local_replica_id);
     context.set_device(local_gpu->get_local_device_id());
-    CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+    CK_CUDA(hipStreamSynchronize(local_gpu->get_framework_stream()));
   };
   for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++)
     resources_mgr_->push_to_threadpool(wait_framework, id);

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -31,14 +32,14 @@ std::shared_ptr<IdentityHashTable<KeyType, ValType>> IdentityHashTable<KeyType, 
 
 template <typename KeyType, typename ValType>
 size_t IdentityHashTable<KeyType, ValType>::get_and_add_value_head(size_t counter_add,
-                                                                   cudaStream_t stream) {
+                                                                   hipStream_t stream) {
   // No internal counter, so that always return 0.
   return 0ul;
 }
 
 template <typename KeyType, typename ValType>
 void IdentityHashTable<KeyType, ValType>::get(const void *d_keys, void *d_vals, size_t len,
-                                              cudaStream_t stream) const {
+                                              hipStream_t stream) const {
   if (0 == len) return;
   // only translate the type of key's to that of value's.
   const KeyType *_d_keys = reinterpret_cast<const KeyType *>(d_keys);
@@ -46,41 +47,41 @@ void IdentityHashTable<KeyType, ValType>::get(const void *d_keys, void *d_vals, 
 
   const size_t grid_size = (len - 1) / 256ul + 1;
   auto type_conversion = [] __device__(KeyType value) { return static_cast<ValType>(value); };
-  transform_array<<<grid_size, 256, 0, stream>>>(_d_keys, _d_vals, len, type_conversion);
+  hipLaunchKernelGGL(transform_array, grid_size, 256, 0, stream, _d_keys, _d_vals, len, type_conversion);
 }
 
 template <typename KeyType, typename ValType>
 void IdentityHashTable<KeyType, ValType>::get_insert(const void *d_keys, void *d_vals, size_t len,
-                                                     cudaStream_t stream) {
+                                                     hipStream_t stream) {
   return this->get(d_keys, d_vals, len, stream);
 }
 
 template <typename KeyType, typename ValType>
 void IdentityHashTable<KeyType, ValType>::insert(const void *d_keys, const void *d_vals, size_t len,
-                                                 cudaStream_t stream) {
+                                                 hipStream_t stream) {
   // do nothing.
   return;
 }
 
 template <typename KeyType, typename ValType>
-size_t IdentityHashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
+size_t IdentityHashTable<KeyType, ValType>::get_size(hipStream_t stream) const {
   // return its capacity
   return capacity_;
 }
 
 template <typename KeyType, typename ValType>
-size_t IdentityHashTable<KeyType, ValType>::get_capacity(cudaStream_t stream) const {
+size_t IdentityHashTable<KeyType, ValType>::get_capacity(hipStream_t stream) const {
   return capacity_;
 }
 
 template <typename KeyType, typename ValType>
-size_t IdentityHashTable<KeyType, ValType>::get_value_head(cudaStream_t stream) const {
+size_t IdentityHashTable<KeyType, ValType>::get_value_head(hipStream_t stream) const {
   return this->get_size(stream);
 }
 
 template <typename KeyType, typename ValType>
 void IdentityHashTable<KeyType, ValType>::dump(void *d_key, void *d_val, size_t *d_dump_counter,
-                                               cudaStream_t stream) const {
+                                               hipStream_t stream) const {
   throw std::runtime_error(ErrorBase +
                            "Not Implemented. "
                            "Cause I don't record keys during get / get_insert and "

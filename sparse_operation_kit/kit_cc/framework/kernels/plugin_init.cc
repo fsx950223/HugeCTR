@@ -20,11 +20,11 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/stream_executor/stream.h"
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
-#include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/stream_executor/rocm/rocm_activation.h"
 
 namespace stream_executor {
 namespace gpu {
-cudaStream_t AsGpuStreamValue(Stream* stream);
+hipStream_t AsGpuStreamValue(Stream* stream);
 }  // namespace gpu
 }  // namespace stream_executor
 
@@ -32,7 +32,7 @@ namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice;
 
-using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
+using ScopedActivateExecutorContext = stream_executor::rocm::ScopedActivateExecutorContext;
 
 template <typename Device>
 class PluginInitOp : public AsyncOpKernel {
@@ -64,10 +64,10 @@ class PluginInitOp : public AsyncOpKernel {
         int32_t num_replicas_in_sync = num_replicas_in_sync_tensor->scalar<int32_t>()(0);
         const uint64_t global_seed = global_seed_tensor->scalar<int64_t>()(0);
 
-        // const cudaStream_t& tf_stream = ctx->eigen_device<Device>().stream();
+        // const hipStream_t& tf_stream = ctx->eigen_device<Device>().stream();
         auto device_ctx = ctx->op_device_context();
         OP_REQUIRES_ASYNC(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."), done);
-        const cudaStream_t tf_stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+        const hipStream_t tf_stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
 
         SparseOperationKit::Facade::instance()->init(
             global_replica_id, num_replicas_in_sync, nccl_unique_id_tensor->flat<int32_t>().data(),

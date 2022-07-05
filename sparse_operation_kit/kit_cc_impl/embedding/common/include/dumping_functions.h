@@ -17,7 +17,7 @@
 #ifndef DUMPING_FUNCTIONS_H
 #define DUMPING_FUNCTIONS_H
 
-#include <cuda_runtime_api.h>
+#include <hip/hip_runtime_api.h>
 
 #include "parameters/param_interface.h"
 #include "resources/manager.h"
@@ -25,7 +25,7 @@
 namespace SparseOperationKit {
 
 void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
-                    const float *embedding_table, float *value_retrieved, cudaStream_t stream);
+                    const float *embedding_table, float *value_retrieved, hipStream_t stream);
 
 // distribute keys to GPU based on key % GPU_NUM
 template <typename KeyType>
@@ -42,7 +42,7 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
                            const size_t num_total_keys);
 template <typename KeyType>
 void generate_dummy_keys(KeyType *d_keys, const size_t num_keys, const size_t global_replica_id,
-                         const size_t global_gpu_count, cudaStream_t stream);
+                         const size_t global_gpu_count, hipStream_t stream);
 
 }  // namespace SparseOperationKit
 

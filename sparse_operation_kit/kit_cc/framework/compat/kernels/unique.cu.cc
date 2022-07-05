@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include <cub/cub.cuh>
+#include <hipcub/hipcub.hpp>
 
 #include "gpu_kernel_helper.h"
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
 #include "tensorflow/core/lib/core/bits.h"
-#include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/stream_executor/rocm/rocm_activation.h"
 
 namespace tensorflow {
 
@@ -192,27 +193,27 @@ Status GpuRadixSort(OpKernelContext *context, int size, const Tkey *keys_in,
   Tensor temp_storage;
   size_t temp_storage_bytes = 0;
   const auto &cu_stream = GetGpuStream(context);
-  auto err = cub::DeviceRadixSort::SortPairs(nullptr, temp_storage_bytes, keys_in, keys_out,
+  auto err = hipcub::DeviceRadixSort::SortPairs(nullptr, temp_storage_bytes, keys_in, keys_out,
                                              indices_in, indices_out, size, /*begin_bit=*/0,
                                              /*end_bit=*/num_bits, cu_stream);
   if (err != 0) {
     return errors::Internal(
         "Failed to launch gpuprim::DeviceRadixSort::SortPairs to calculate "
         "temp_storage_bytes, status: ",
-        cudaGetErrorString(err));
+        hipGetErrorString(err));
   }
   // Allocate temporary storage.
   TF_RETURN_IF_ERROR(context->allocate_temp(
       DT_INT8, TensorShape({static_cast<int64>(temp_storage_bytes)}), &temp_storage));
   // Sort indices by keys.
-  err = cub::DeviceRadixSort::SortPairs(temp_storage.flat<int8>().data(), temp_storage_bytes,
+  err = hipcub::DeviceRadixSort::SortPairs(temp_storage.flat<int8>().data(), temp_storage_bytes,
                                         keys_in, keys_out, indices_in, indices_out, size,
                                         /*begin_bit=*/0, /*end_bit=*/num_bits, cu_stream);
   if (err != 0) {
     return errors::Internal(
         "Failed to launch gpuprim::DeviceRadixSort::SortPairs, "
         "temp_storage_bytes: ",
-        temp_storage_bytes, "status: ", cudaGetErrorString(err));
+        temp_storage_bytes, "status: ", hipGetErrorString(err));
   }
   return Status::OK();
 }
@@ -227,23 +228,23 @@ Status GpuInclusivePrefixSum(OpKernelContext *context, int size, InputIteratorT 
   const auto &cu_stream = GetGpuStream(context);
   size_t temp_storage_bytes;
   auto err =
-      cub::DeviceScan::InclusiveSum(nullptr, temp_storage_bytes, input, output, size, cu_stream);
+      hipcub::DeviceScan::InclusiveSum(nullptr, temp_storage_bytes, input, output, size, cu_stream);
   if (err != 0) {
     return errors::Internal(
         "Failed to launch gpuprim::DeviceScan::InclusiveSum to calculate "
         "temp_storage_bytes, status: ",
-        cudaGetErrorString(err));
+        hipGetErrorString(err));
   }
   Tensor temp_storage;
   TF_RETURN_IF_ERROR(context->allocate_temp(
       DT_INT8, TensorShape({static_cast<int64>(temp_storage_bytes)}), &temp_storage));
-  err = cub::DeviceScan::InclusiveSum(temp_storage.flat<int8>().data(), temp_storage_bytes, input,
+  err = hipcub::DeviceScan::InclusiveSum(temp_storage.flat<int8>().data(), temp_storage_bytes, input,
                                       output, size, cu_stream);
   if (err != 0) {
     return errors::Internal(
         "Failed to launch gpuprim::DeviceScan::InclusiveSum, "
         "temp_storage_bytes: ",
-        temp_storage_bytes, ", status: ", cudaGetErrorString(err));
+        temp_storage_bytes, ", status: ", hipGetErrorString(err));
   }
   return Status::OK();
 }
@@ -408,9 +409,9 @@ class UniqueOpGPU : public AsyncOpKernel {
     using namespace unique_op_gpu;
 
     // Create a fancy input iterator to indicate segment boundaries.
-    cub::TransformInputIterator<TIndex, SegmentIndicatorFunctor<T, TIndex>,
-                                cub::CountingInputIterator<TIndex>>
-        segment_indicator_iter(0, {sorted_input_ptr});
+    hipcub::TransformInputIterator<TIndex, SegmentIndicatorFunctor<T, TIndex>,
+                                hipcub::CountingInputIterator<TIndex>>
+        segment_indicator_iter((hipcub::CountingInputIterator<TIndex>)0, {sorted_input_ptr});
 
     Tensor sorted_input_unique_ids;
     TIndex *sorted_input_unique_ids_ptr = nullptr;
@@ -443,7 +444,7 @@ class UniqueOpGPU : public AsyncOpKernel {
       const GPUDevice &device = context->eigen_gpu_device();
       int64 uniq_size = (*last_idx_host.data()) + 1;
 
-      se::cuda::ScopedActivateExecutorContext scoped_activation{
+      se::rocm::ScopedActivateExecutorContext scoped_activation{
           context->op_device_context()->stream()->parent()};
 
       Tensor unique_input_inds;

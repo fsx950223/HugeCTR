@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -45,12 +46,12 @@ __global__ void check_numerics_kernel(const T* data, uint32_t size) {
 }
 
 template <typename T>
-void check_numerics(const T* data, uint32_t size, cudaStream_t& stream) {
+void check_numerics(const T* data, uint32_t size, hipStream_t& stream) {
   const size_t block_size = 1024;
   const size_t grid_size = (size + block_size - 1) / block_size;
-  check_numerics_kernel<<<grid_size, block_size, 0, stream>>>(data, size);
+  hipLaunchKernelGGL(check_numerics_kernel, grid_size, block_size, 0, stream, data, size);
 }
 
-template void check_numerics(const float* data, uint32_t size, cudaStream_t& stream);
+template void check_numerics(const float* data, uint32_t size, hipStream_t& stream);
 
 }  // namespace SparseOperationKit

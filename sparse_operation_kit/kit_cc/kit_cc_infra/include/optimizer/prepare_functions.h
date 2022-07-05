@@ -17,19 +17,19 @@
 #ifndef PREPARE_FUNCTIONS_H
 #define PREPARE_FUNCTIONS_H
 
-#include "cuda_runtime_api.h"
+#include "hip/hip_runtime_api.h"
 
 namespace SparseOperationKit {
 
 void gen_position_for_indices(const int64_t* indices, const size_t elem_num, int64_t* positions,
-                              cudaStream_t stream);
+                              hipStream_t stream);
 
 void gen_unique_flags_for_indices(const int64_t* indices, const size_t elem_num, uint32_t* flags,
-                                  cudaStream_t stream);
+                                  hipStream_t stream);
 
 void gen_unique_indexes_for_indices(const uint32_t* flags, const uint32_t* prefix_sums,
                                     const size_t elem_num, size_t* indexes,
-                                    uint32_t* num_of_uniques, cudaStream_t stream);
+                                    uint32_t* num_of_uniques, hipStream_t stream);
 
 }  // namespace SparseOperationKit
 

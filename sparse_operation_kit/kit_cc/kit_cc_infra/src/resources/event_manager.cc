@@ -48,7 +48,7 @@ std::shared_ptr<Event>& EventManager::get_event(const std::string event_name) {
   return create_event(std::move(event_name));  // no such event
 }
 
-void EventManager::sync_two_streams(cudaStream_t& root_stream, cudaStream_t& sub_stream,
+void EventManager::sync_two_streams(hipStream_t& root_stream, hipStream_t& sub_stream,
                                     const std::string event_name, const bool event_sync) {
   /*--root_stream->event->sub_stream--*/
   std::shared_ptr<Event>& event = get_event(std::move(event_name));

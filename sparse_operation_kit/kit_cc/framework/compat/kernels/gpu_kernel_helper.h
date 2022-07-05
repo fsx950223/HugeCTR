@@ -23,7 +23,7 @@ limitations under the License.
 
 namespace tensorflow {
 
-using gpuStream_t = cudaStream_t;
+using gpuStream_t = hipStream_t;
 
 // Returns a raw reference to the current cuda stream. Required by a
 // number of kernel calls (for which StreamInterface* does not work),
@@ -34,7 +34,7 @@ inline const gpuStream_t &GetGpuStream(OpKernelContext *context) {
   return *ptr;
 }
 
-// Launches a GPU kernel through cudaLaunchKernel in CUDA environment, or
+// Launches a GPU kernel through hipLaunchKernel in CUDA environment, or
 // hipLaunchKernel in ROCm environment with the given arguments.
 //
 // The kernel parameters 'Ts' must be constructible from the arguments 'Args'.
@@ -47,10 +47,10 @@ Status GpuLaunchKernel(void (*function)(Ts...), dim3 grid_dim, dim3 block_dim,
   // Cast arguments and forward them as an array of pointers.
   auto args_tuple = std::tuple<Ts...>(arguments...);
   auto arg_ptrs = detail::GetArrayOfElementPointers(&args_tuple);
-  auto result = cudaLaunchKernel(func_ptr, grid_dim, block_dim, arg_ptrs.data(),
+  auto result = hipLaunchKernel(func_ptr, grid_dim, block_dim, arg_ptrs.data(),
                                  shared_memory_size_bytes, stream);
-  if (result != cudaSuccess) {
-    return errors::Internal(cudaGetErrorString(result));
+  if (result != hipSuccess) {
+    return errors::Internal(hipGetErrorString(result));
   }
   return Status::OK();
 }

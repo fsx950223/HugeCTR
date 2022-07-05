@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -48,46 +49,46 @@ __global__ void expand_input_grad_kernel(const size_t global_batch_size, const s
 template <typename TypeKey, typename TypeEmbeddingComp>
 void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
                        const size_t embedding_vec_size, const TypeKey *replica_row_offset,
-                       const TypeEmbeddingComp *wgrad, TypeEmbeddingComp *replica_input_grad, cudaStream_t stream) {
+                       const TypeEmbeddingComp *wgrad, TypeEmbeddingComp *replica_input_grad, hipStream_t stream) {
   const size_t grid_size = global_batch_size;
   const size_t block_size = embedding_vec_size;
-  expand_input_grad_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(expand_input_grad_kernel, grid_size, block_size, 0, stream, 
       global_batch_size, slot_num, embedding_vec_size, replica_row_offset, wgrad,
       replica_input_grad);
 }
 
 template void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
                                 const size_t embedding_vec_size, const int64_t *replica_row_offset,
-                                const float *wgrad, float *replica_input_grad, cudaStream_t stream);
+                                const float *wgrad, float *replica_input_grad, hipStream_t stream);
 template void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
                                 const size_t embedding_vec_size, const int64_t *replica_row_offset,
-                                const __half *wgrad, __half *replica_input_grad, cudaStream_t stream);
+                                const __half *wgrad, __half *replica_input_grad, hipStream_t stream);
 
 template <typename TypeEmbeddingComp>
 void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                   const TypeEmbeddingComp *top_grad, TypeEmbeddingComp *wgrad,
-                  cudaStream_t stream) {
+                  hipStream_t stream) {
   HugeCTR::backward_sum(batch_size, slot_num, embedding_vec_size, top_grad, wgrad, stream);
 }
 
 template void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-                           const float *top_grad, float *wgrad, cudaStream_t stream);
+                           const float *top_grad, float *wgrad, hipStream_t stream);
 template void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-                           const __half *top_grad, __half *wgrad, cudaStream_t stream);
+                           const __half *top_grad, __half *wgrad, hipStream_t stream);
 
 template <typename TypeKey, typename TypeEmbeddingComp>
 void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_size,
                    const TypeKey *row_offset, const TypeEmbeddingComp *top_grad,
-                   TypeEmbeddingComp *wgrad, cudaStream_t stream) {
+                   TypeEmbeddingComp *wgrad, hipStream_t stream) {
   HugeCTR::backward_mean(batch_size, slot_size, embedding_vec_size, row_offset, top_grad, wgrad,
                          stream);
 }
 
 template void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_size,
                             const int64_t *row_offset, const float *top_grad, float *wgrad,
-                            cudaStream_t stream);
+                            hipStream_t stream);
 template void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_size,
                             const int64_t *row_offset, const __half *top_grad, __half *wgrad,
-                            cudaStream_t stream);
+                            hipStream_t stream);
 
 }  // namespace SparseOperationKit

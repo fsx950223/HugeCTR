@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -20,7 +21,7 @@
 #ifdef SOK_ASYNC
 // these headers are only needed in AsyncOpKernel
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
-#include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/stream_executor/rocm/rocm_activation.h"
 #endif
 
 #include <mpi.h>
@@ -66,7 +67,7 @@ __global__ void TestOpCudaKernel(Type const* input_ptr, Type* output_ptr, const 
 
 namespace stream_executor {
 namespace gpu {
-cudaStream_t AsGpuStreamValue(Stream* stream);
+hipStream_t AsGpuStreamValue(Stream* stream);
 }  // namespace gpu
 }  // namespace stream_executor
 
@@ -75,7 +76,7 @@ using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice;
 
 #ifdef SOK_ASYNC
-using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
+using ScopedActivateExecutorContext = stream_executor::rocm::ScopedActivateExecutorContext;
 
 template <typename Device>
 class TestOp : public AsyncOpKernel {
@@ -104,11 +105,11 @@ class TestOp : public AsyncOpKernel {
       OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, input_tensor->shape(), &output_tensor),
                            done);
 
-      const cudaStream_t stream =
+      const hipStream_t stream =
           stream_executor::gpu::AsGpuStreamValue(ctx->op_device_context()->stream());
       // constexpr size_t blocks = 256ul;
       // const size_t grids = (input_tensor->NumElements() + blocks - 1) / blocks;
-      // SparseOperationKit::TestOpCudaKernel<<<grids, blocks, 0, stream>>>(
+      // hipLaunchKernelGGL(SparseOperationKit::TestOpCudaKernel, grids, blocks, 0, stream, 
       //                                 reinterpret_cast<const float*>(input_tensor->data()),
       //                                 reinterpret_cast<float*>(output_tensor->data()),
       //                                 input_tensor->NumElements());
@@ -116,9 +117,9 @@ class TestOp : public AsyncOpKernel {
       nvtxRangeId_t mark =
           nvtxRangeStartA((std::string("TestOpCudaKernel: ") + unique_op_name_).c_str());
 #endif
-      cudaMemcpyAsync(output_tensor->data(), input_tensor->data(),
+      hipMemcpyAsync(output_tensor->data(), input_tensor->data(),
                       input_tensor->NumElements() * DataTypeSize(input_tensor->dtype()),
-                      cudaMemcpyDeviceToDevice, stream);
+                      hipMemcpyDeviceToDevice, stream);
 #ifdef USE_NVTX
       nvtxRangeEnd(mark);
 #endif

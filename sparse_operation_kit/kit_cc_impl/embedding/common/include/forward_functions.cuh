@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -54,11 +55,11 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void forward(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
              const TypeHashKey *row_offset, const size_t *hash_value_index,
              const float *hash_table_value, TypeEmbeddingComp *embedding_feature,
-             cudaStream_t stream) {
+             hipStream_t stream) {
   const size_t grid_size = batch_size;  // each block corresponds to a sample
   const size_t block_size =
       embedding_vec_size;  // each thread corresponds to one element in an embedding vector
-  forward_kernel<<<grid_size, block_size, 0, stream>>>(batch_size, slot_num, embedding_vec_size,
+  hipLaunchKernelGGL(forward_kernel, grid_size, block_size, 0, stream, batch_size, slot_num, embedding_vec_size,
                                                        row_offset, hash_value_index,
                                                        hash_table_value, embedding_feature);
 }
@@ -103,11 +104,11 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void forward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                  const TypeHashKey *row_offset, const size_t *hash_value_index,
                  const float *hash_table_value, TypeEmbeddingComp *embedding_feature,
-                 cudaStream_t stream) {
+                 hipStream_t stream) {
   const size_t grid_size = batch_size;  // each block corresponds to a sample
   const size_t block_size =
       embedding_vec_size;  // each thread corresponds to one element in an embedding vector
-  forward_sum_kernel<<<grid_size, block_size, 0, stream>>>(batch_size, slot_num, embedding_vec_size,
+  hipLaunchKernelGGL(forward_sum_kernel, grid_size, block_size, 0, stream, batch_size, slot_num, embedding_vec_size,
                                                            row_offset, hash_value_index,
                                                            hash_table_value, embedding_feature);
 }
@@ -152,10 +153,10 @@ void forward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
 // void forward_mean(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
 //                   const TypeHashKey *row_offset, const size_t *hash_value_index,
 //                   const float *hash_table_value, TypeEmbeddingComp *embedding_feature,
-//                   cudaStream_t stream) {
+//                   hipStream_t stream) {
 //   const size_t grid_size = batch_size;
 //   const size_t block_size = embedding_vec_size;
-//   forward_mean_kernel<<<grid_size, block_size, 0, stream>>>(
+//   hipLaunchKernelGGL(forward_mean_kernel, grid_size, block_size, 0, stream, 
 //       batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index, hash_table_value,
 //       embedding_feature);
 // }
@@ -188,10 +189,10 @@ __global__ void forward_scale_kernel(size_t batch_size, size_t slot_num, size_t 
 template <typename TypeKey, typename TypeEmbeddingComp>
 void do_forward_scale(size_t batchsize_per_gpu, size_t slot_num, size_t embedding_vec_size,
                       const TypeKey *row_offset, TypeEmbeddingComp *embedding_feature,
-                      cudaStream_t stream) {
+                      hipStream_t stream) {
   const size_t grid_size = batchsize_per_gpu;
   const size_t block_size = embedding_vec_size;
-  forward_scale_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(forward_scale_kernel, grid_size, block_size, 0, stream, 
       batchsize_per_gpu, slot_num, embedding_vec_size, row_offset, embedding_feature);
 };
 
@@ -222,11 +223,11 @@ __global__ void memset_liner_kernel(Type *data, const Type start_value, const Ty
 }
 
 template <typename Type>
-void memset_liner(Type *data, Type start_value, Type stride_value, size_t n, cudaStream_t stream) {
+void memset_liner(Type *data, Type start_value, Type stride_value, size_t n, hipStream_t stream) {
   const size_t block_size = 256;
   const size_t grid_size = (n + block_size - 1) / block_size;
 
-  memset_liner_kernel<<<grid_size, block_size, 0, stream>>>(data, start_value, stride_value, n);
+  hipLaunchKernelGGL(memset_liner_kernel, grid_size, block_size, 0, stream, data, start_value, stride_value, n);
 }
 
 }  // namespace HugeCTR

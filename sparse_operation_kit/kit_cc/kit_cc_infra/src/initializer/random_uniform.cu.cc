@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -29,13 +30,13 @@ std::shared_ptr<RandomUniformInit> RandomUniformInit::create(const float a, cons
 }
 
 void RandomUniformInit::fill(std::shared_ptr<Tensor> tensor, const size_t sm_count,
-                             const curandGenerator_t& generator, const cudaStream_t& stream) {
-  CK_CURAND(curandGenerateUniform(generator, tensor->GetPtrWithType<float>(),
+                             const hiprandGenerator_t& generator, const hipStream_t& stream) {
+  CK_CURAND(hiprandGenerateUniform(generator, tensor->GetPtrWithType<float>(),
                                   tensor->get_num_elements()));
 
   float a = a_, b = b_;
   auto op = [a, b] __device__(float val) { return val * (b - a) + a; };
-  transform_array<<<sm_count * 2, 1024, 0, stream>>>(tensor->GetPtrWithType<float>(),
+  hipLaunchKernelGGL(transform_array, sm_count * 2, 1024, 0, stream, tensor->GetPtrWithType<float>(),
                                                      tensor->GetPtrWithType<float>(),
                                                      tensor->get_num_elements(), op);
 }

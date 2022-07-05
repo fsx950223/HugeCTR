@@ -28,9 +28,9 @@ namespace HashFunctors {
 struct HashFunctor {
   virtual ~HashFunctor() {}
   virtual void operator()(const void *d_key, void *d_vals, const size_t len,
-                          cudaStream_t stream) = 0;
+                          hipStream_t stream) = 0;
   virtual void dump(void *d_keys, void *d_vals, size_t *d_dump_counter,
-                    cudaStream_t stream) const = 0;
+                    hipStream_t stream) const = 0;
   virtual std::unique_ptr<HashFunctor> clone(const size_t global_replica_id) = 0;
 };
 
@@ -41,8 +41,8 @@ class Divisive : public HashFunctor {
                                                             const size_t capacity,
                                                             const size_t global_replica_id);
 
-  void operator()(const void *d_keys, void *d_vals, const size_t len, cudaStream_t stream) override;
-  void dump(void *d_keys, void *d_vals, size_t *d_dump_counter, cudaStream_t stream) const override;
+  void operator()(const void *d_keys, void *d_vals, const size_t len, hipStream_t stream) override;
+  void dump(void *d_keys, void *d_vals, size_t *d_dump_counter, hipStream_t stream) const override;
   std::unique_ptr<HashFunctor> clone(const size_t global_replica_id) override;
 
  private:
@@ -70,18 +70,18 @@ class SimpleHashtable : public BaseSimpleHashtable {
   static std::shared_ptr<SimpleHashtable<KeyType, ValType>> create(const size_t capacity,
                                                                    HashFunctor_t &hash_functor);
 
-  virtual size_t get_and_add_value_head(size_t counter_add, cudaStream_t stream) override;
+  virtual size_t get_and_add_value_head(size_t counter_add, hipStream_t stream) override;
   virtual void get(const void *d_keys, void *d_vals, size_t len,
-                   cudaStream_t stream) const override;
+                   hipStream_t stream) const override;
   virtual void get_insert(const void *d_keys, void *d_vals, size_t len,
-                          cudaStream_t stream) override;
+                          hipStream_t stream) override;
   virtual void insert(const void *d_keys, const void *d_vals, size_t len,
-                      cudaStream_t stream) override;
-  virtual size_t get_size(cudaStream_t stream) const override;
-  virtual size_t get_capacity(cudaStream_t stream) const override;
-  virtual size_t get_value_head(cudaStream_t stream) const override;
+                      hipStream_t stream) override;
+  virtual size_t get_size(hipStream_t stream) const override;
+  virtual size_t get_capacity(hipStream_t stream) const override;
+  virtual size_t get_value_head(hipStream_t stream) const override;
   virtual void dump(void *d_key, void *d_val, size_t *d_dump_counter,
-                    cudaStream_t stream) const override;
+                    hipStream_t stream) const override;
   virtual bool identical_mapping() const override;
   virtual std::shared_ptr<BaseSimpleHashtable> clone(const size_t global_replica_id) override;
 

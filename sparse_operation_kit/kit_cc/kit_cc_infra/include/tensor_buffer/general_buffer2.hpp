@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <cuda_runtime_api.h>
+#include <hip/hip_runtime_api.h>
 
 #include <memory>
 
@@ -33,30 +33,30 @@ class CudaHostAllocator {
  public:
   void *allocate(size_t size) const {
     void *ptr;
-    CK_CUDA(cudaHostAlloc(&ptr, size, cudaHostAllocDefault));
+    CK_CUDA(hipHostMalloc(&ptr, size, hipHostMallocDefault));
     return ptr;
   }
-  void deallocate(void *ptr) const { CK_CUDA(cudaFreeHost(ptr)); }
+  void deallocate(void *ptr) const { CK_CUDA(hipHostFree(ptr)); }
 };
 
 class CudaManagedAllocator {
  public:
   void *allocate(size_t size) const {
     void *ptr;
-    CK_CUDA(cudaMallocManaged(&ptr, size));
+    CK_CUDA(hipMallocManaged(&ptr, size));
     return ptr;
   }
-  void deallocate(void *ptr) const { CK_CUDA(cudaFree(ptr)); }
+  void deallocate(void *ptr) const { CK_CUDA(hipFree(ptr)); }
 };
 
 class CudaAllocator {
  public:
   void *allocate(size_t size) const {
     void *ptr;
-    CK_CUDA(cudaMalloc(&ptr, size));
+    CK_CUDA(hipMalloc(&ptr, size));
     return ptr;
   }
-  void deallocate(void *ptr) const { CK_CUDA(cudaFree(ptr)); }
+  void deallocate(void *ptr) const { CK_CUDA(hipFree(ptr)); }
 };
 
 template <typename T>
@@ -86,8 +86,8 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
     bool allocated() const override { return buffer_ && buffer_->allocated(); }
     void *get_ptr() override { return forward_void_pointer(buffer_->ptr_, offset_); }
 
-    size_t get_size_in_bytes() const { return size_in_bytes_; }
-    void initialize(const std::shared_ptr<GeneralBuffer2> &buffer, size_t offset) {
+    size_t get_size_in_bytes() const override { return size_in_bytes_; }
+    void initialize(const std::shared_ptr<GeneralBuffer2> &buffer, size_t offset) override {
       buffer_ = buffer;
       offset_ = offset;
     }

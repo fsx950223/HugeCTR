@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -26,10 +27,10 @@ std::shared_ptr<ConstantInit> ConstantInit::create(const float value) {
 }
 
 void ConstantInit::fill(std::shared_ptr<Tensor> tensor, const size_t sm_count,
-                        const curandGenerator_t& generator, const cudaStream_t& stream) {
+                        const hiprandGenerator_t& generator, const hipStream_t& stream) {
   float value = value_;
   auto op = [value] __device__(float val) { return value; };
-  transform_array<<<sm_count * 2, 1024, 0, stream>>>(tensor->GetPtrWithType<float>(),
+  hipLaunchKernelGGL(transform_array, sm_count * 2, 1024, 0, stream, tensor->GetPtrWithType<float>(),
                                                      tensor->GetPtrWithType<float>(),
                                                      tensor->get_num_elements(), op);
 }

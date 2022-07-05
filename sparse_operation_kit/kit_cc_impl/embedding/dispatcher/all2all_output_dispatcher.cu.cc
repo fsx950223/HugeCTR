@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -174,14 +175,14 @@ class All2AllOutputDispatcher : public Dispatcher {
 
     // step 2: reorder embedding values
     {
-      // CK_CUDA(cudaMemsetAsync(replica_output->GetPtrWithType<float>(), 0,
+      // CK_CUDA(hipMemsetAsync(replica_output->GetPtrWithType<float>(), 0,
       //                         replica_output->get_size_in_bytes(),
       //                         local_gpu->get_stream()));  // TODO: merge it to reorderKernel
       const size_t smem_size = local_gpu->get_max_smem_size_per_sm() / 2;
-      CK_CUDA(cudaFuncSetAttribute(reorderKernel<ValueType>,
-                                   cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+      CK_CUDA(hipFuncSetAttribute(reinterpret_cast<const void*>(reorderKernel<ValueType>),
+                                  hipFuncAttributeMaxDynamicSharedMemorySize, smem_size));
       dim3 const grid_dim(2 * local_gpu->get_sm_count() / global_gpu_count, global_gpu_count);
-      dim3 const block_dim(local_gpu->get_warp_size(), EMB_WARPS_PER_BLOCK);
+      dim3 const block_dim(local_gpu->get_warp_size(), EMB_WARPS_PER_BLOCK / 2);
       reorderKernel<ValueType><<<grid_dim, block_dim, smem_size, local_gpu->get_stream()>>>(
           /*EmbeddingDimension=*/embedding_vec_size,
           /*inputs=*/exchanged_embeddings_buf_[local_replica_id].get_ptr(),
@@ -190,7 +191,7 @@ class All2AllOutputDispatcher : public Dispatcher {
           /*chunks=*/global_gpu_count,
           /*max_chunk_size=*/num_keys_per_rank_,
           /*chunk_sizes=*/replica_num_selected_keys->GetPtrWithType<uint32_t>());
-      CK_CUDA(cudaGetLastError());
+      CK_CUDA(hipGetLastError());
     }
   }
 
@@ -215,10 +216,10 @@ class All2AllOutputDispatcher : public Dispatcher {
     const size_t embedding_vec_size = base_context()->get_param()->get_embedding_vec_size();
     {
       const size_t smem_size = local_gpu->get_max_smem_size_per_sm() / 2;
-      CK_CUDA(cudaFuncSetAttribute(gatherExKernel<ValueType>,
-                                   cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+      CK_CUDA(hipFuncSetAttribute(reinterpret_cast<const void*>(gatherExKernel<ValueType>),
+                                  hipFuncAttributeMaxDynamicSharedMemorySize, smem_size));
       dim3 const grid_dim(2 * local_gpu->get_sm_count() / global_gpu_count, global_gpu_count);
-      dim3 const block_dim(local_gpu->get_warp_size(), EMB_WARPS_PER_BLOCK);
+      dim3 const block_dim(local_gpu->get_warp_size(), EMB_WARPS_PER_BLOCK / 2);
       gatherExKernel<ValueType><<<grid_dim, block_dim, smem_size, local_gpu->get_stream()>>>(
           /*EmbeddingDimension=*/embedding_vec_size,
           /*inputs=*/replica_top_gradients->GetPtrWithType<ValueType>(),
@@ -227,7 +228,7 @@ class All2AllOutputDispatcher : public Dispatcher {
           /*chunks=*/global_gpu_count,
           /*max_chunk_size=*/num_keys_per_rank_,
           /*chunk_sizes=*/replica_num_selected_keys->GetPtrWithType<uint32_t>());
-      CK_CUDA(cudaGetLastError());
+      CK_CUDA(hipGetLastError());
     }
 
     // step 2: exchange gradients among all GPUs.

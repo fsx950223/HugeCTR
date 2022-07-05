@@ -26,7 +26,7 @@ class ConstantInit : public Initializer {
   static std::shared_ptr<ConstantInit> create(const float value);
 
   void fill(std::shared_ptr<Tensor> tensor, const size_t sm_count,
-            const curandGenerator_t& generator, const cudaStream_t& stream) override;
+            const hiprandGenerator_t& generator, const hipStream_t& stream) override;
 
  private:
   ConstantInit(const float value);

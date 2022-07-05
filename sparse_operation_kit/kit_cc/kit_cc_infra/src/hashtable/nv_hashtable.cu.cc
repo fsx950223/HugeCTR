@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -167,9 +168,9 @@ HashTable<KeyType, ValType>::HashTable(size_t capacity, size_t count) : capacity
       new HashTableContainer<KeyType, ValType>(static_cast<size_t>(capacity / LOAD_FACTOR));
 
   // Allocate device-side counter and copy user input to it
-  CK_CUDA(cudaMalloc((void**)&d_counter_, sizeof(size_t)));
-  CK_CUDA(cudaMalloc((void**)&d_container_size_, sizeof(size_t)));
-  CK_CUDA(cudaMemcpy(d_counter_, &count, sizeof(size_t), cudaMemcpyHostToDevice));
+  CK_CUDA(hipMalloc((void**)&d_counter_, sizeof(size_t)));
+  CK_CUDA(hipMalloc((void**)&d_container_size_, sizeof(size_t)));
+  CK_CUDA(hipMemcpy(d_counter_, &count, sizeof(size_t), hipMemcpyHostToDevice));
 }
 
 template <typename KeyType, typename ValType>
@@ -177,8 +178,8 @@ HashTable<KeyType, ValType>::~HashTable() {
   try {
     delete container_;
     // De-allocate device-side counter
-    CK_CUDA(cudaFree(d_counter_));
-    CK_CUDA(cudaFree(d_container_size_));
+    CK_CUDA(hipFree(d_counter_));
+    CK_CUDA(hipFree(d_container_size_));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
@@ -186,37 +187,37 @@ HashTable<KeyType, ValType>::~HashTable() {
 
 template <typename KeyType, typename ValType>
 void HashTable<KeyType, ValType>::insert(const KeyType* d_keys, const ValType* d_vals, size_t len,
-                                         cudaStream_t stream) {
+                                         hipStream_t stream) {
   if (len == 0) {
     return;
   }
   const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
-  insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, d_keys, d_vals, len);
+  hipLaunchKernelGGL(insert_kernel, grid_size, BLOCK_SIZE_, 0, stream, container_, d_keys, d_vals, len);
 }
 
 template <typename KeyType, typename ValType>
 void HashTable<KeyType, ValType>::get_insert(const KeyType* d_keys, ValType* d_vals, size_t len,
-                                             cudaStream_t stream) {
+                                             hipStream_t stream) {
   if (len == 0) {
     return;
   }
   const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
-  get_insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, d_keys, d_vals, len,
+  hipLaunchKernelGGL(get_insert_kernel, grid_size, BLOCK_SIZE_, 0, stream, container_, d_keys, d_vals, len,
                                                            d_counter_);
 }
 
 template <typename KeyType, typename ValType>
 void HashTable<KeyType, ValType>::get(const KeyType* d_keys, ValType* d_vals, size_t len,
-                                      cudaStream_t stream) const {
+                                      hipStream_t stream) const {
   if (len == 0) {
     return;
   }
   const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
-  search_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, d_keys, d_vals, len);
+  hipLaunchKernelGGL(search_kernel, grid_size, BLOCK_SIZE_, 0, stream, container_, d_keys, d_vals, len);
 }
 
 template <typename KeyType, typename ValType>
-size_t HashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
+size_t HashTable<KeyType, ValType>::get_size(hipStream_t stream) const {
   /* size variable on Host and device, total capacity of the hashtable */
   size_t container_size;
 
@@ -225,47 +226,47 @@ size_t HashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
   /* grid_size and allocating/initializing variable on dev, launching kernel*/
   const int grid_size = (hash_capacity - 1) / BLOCK_SIZE_ + 1;
 
-  CK_CUDA(cudaMemsetAsync(d_container_size_, 0, sizeof(size_t), stream));
-  size_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, hash_capacity, d_container_size_,
+  CK_CUDA(hipMemsetAsync(d_container_size_, 0, sizeof(size_t), stream));
+  hipLaunchKernelGGL(size_kernel, grid_size, BLOCK_SIZE_, 0, stream, container_, hash_capacity, d_container_size_,
                                                      empty_key);
-  CK_CUDA(cudaMemcpyAsync(&container_size, d_container_size_, sizeof(size_t),
-                          cudaMemcpyDeviceToHost, stream));
-  CK_CUDA(cudaStreamSynchronize(stream));
+  CK_CUDA(hipMemcpyAsync(&container_size, d_container_size_, sizeof(size_t),
+                          hipMemcpyDeviceToHost, stream));
+  CK_CUDA(hipStreamSynchronize(stream));
 
   return container_size;
 }
 
 template <typename KeyType, typename ValType>
-size_t HashTable<KeyType, ValType>::get_value_head(cudaStream_t stream) const {
+size_t HashTable<KeyType, ValType>::get_value_head(hipStream_t stream) const {
   size_t counter;
-  CK_CUDA(cudaMemcpyAsync(&counter, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
-  CK_CUDA(cudaStreamSynchronize(stream));
+  CK_CUDA(hipMemcpyAsync(&counter, d_counter_, sizeof(size_t), hipMemcpyDeviceToHost, stream));
+  CK_CUDA(hipStreamSynchronize(stream));
   return counter;
 }
 
 template <typename KeyType, typename ValType>
 void HashTable<KeyType, ValType>::dump(KeyType* d_key, ValType* d_val, size_t* d_dump_counter,
-                                       cudaStream_t stream) const {
+                                       hipStream_t stream) const {
   size_t search_length = static_cast<size_t>(capacity_ / LOAD_FACTOR);
   // Before we call the kernel, set the global counter to 0
-  CK_CUDA(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
+  CK_CUDA(hipMemset(d_dump_counter, 0, sizeof(size_t)));
   // grid size according to the searching length.
   const int grid_size = (search_length - 1) / BLOCK_SIZE_ + 1;
   // dump_kernel: dump bucket container_[0, search_length) to d_key and d_val, and report
   // how many buckets are dumped in d_dump_counter.
   size_t shared_size = sizeof(*d_key) * BLOCK_SIZE_ + sizeof(*d_val) * BLOCK_SIZE_;
-  dump_kernel<<<grid_size, BLOCK_SIZE_, shared_size, stream>>>(
+  hipLaunchKernelGGL(dump_kernel, grid_size, BLOCK_SIZE_, shared_size, stream, 
       d_key, d_val, container_, 0, search_length, d_dump_counter, empty_key);
 }
 
 template <typename KeyType, typename ValType>
 void HashTable<KeyType, ValType>::set(const KeyType* d_keys, const ValType* d_vals, size_t len,
-                                      cudaStream_t stream) {
+                                      hipStream_t stream) {
   if (len == 0) {
     return;
   }
   const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
-  insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, d_keys, d_vals, len);
+  hipLaunchKernelGGL(insert_kernel, grid_size, BLOCK_SIZE_, 0, stream, container_, d_keys, d_vals, len);
 }
 
 template <typename KeyType, typename ValType>
@@ -274,7 +275,7 @@ size_t HashTable<KeyType, ValType>::get_capacity() const {
 }
 
 template <typename KeyType, typename ValType>
-void HashTable<KeyType, ValType>::clear(cudaStream_t stream) {
+void HashTable<KeyType, ValType>::clear(hipStream_t stream) {
   container_->clear_async(stream);
   set_value_head(0, stream);
 }

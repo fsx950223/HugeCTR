@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -121,19 +122,19 @@ class AllGatherDispatcher : public Dispatcher {
     auto &replica_values = replica_context->input("replica_values");
     auto &replica_row_indices = replica_context->input("replica_indices");
 
-    CK_CUDA(cudaMemcpyAsync(
+    CK_CUDA(hipMemcpyAsync(
         values_buffers_[local_replica_id].get_ptr() + (global_replica_id * replica_num_elements_),
         replica_values->GetPtrWithType<void>(), replica_values->get_size_in_bytes(),
-        cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
-    CK_CUDA(cudaMemcpyAsync(
+        hipMemcpyDeviceToDevice, local_gpu->get_stream()));
+    CK_CUDA(hipMemcpyAsync(
         indices_buffers_[local_replica_id].get_ptr() + (global_replica_id * replica_num_elements_),
         replica_row_indices->GetPtrWithType<void>(), replica_row_indices->get_size_in_bytes(),
-        cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
+        hipMemcpyDeviceToDevice, local_gpu->get_stream()));
 
     host_num_elements_[local_replica_id].get_ptr()[0] = replica_values->get_num_elements();
-    CK_CUDA(cudaMemcpyAsync(num_elements_[local_replica_id].get_ptr() + global_replica_id,
+    CK_CUDA(hipMemcpyAsync(num_elements_[local_replica_id].get_ptr() + global_replica_id,
                             host_num_elements_[local_replica_id].get_ptr(), sizeof(size_t) * 1,
-                            cudaMemcpyHostToDevice, local_gpu->get_stream()));
+                            hipMemcpyHostToDevice, local_gpu->get_stream()));
 
     CK_NCCL(ncclGroupStart());
     CK_NCCL(ncclAllGather(
@@ -173,10 +174,10 @@ class AllGatherDispatcher : public Dispatcher {
         total_valid_num_[local_replica_id].get_ptr());
     // copy back to host
     resource_mgr_->sync_gpu(local_replica_id);
-    CK_CUDA(cudaMemcpyAsync(host_num_elements_[local_replica_id].get_ptr(),
+    CK_CUDA(hipMemcpyAsync(host_num_elements_[local_replica_id].get_ptr(),
                             total_valid_num_[local_replica_id].get_ptr(),
                             total_valid_num_[local_replica_id].get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+                            hipMemcpyDeviceToHost, local_gpu->get_stream()));
     resource_mgr_->sync_gpu(local_replica_id);
 
     // set output for this operation

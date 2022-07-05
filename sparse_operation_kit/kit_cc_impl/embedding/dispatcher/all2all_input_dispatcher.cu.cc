@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -76,18 +77,18 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
       curr_warp_idx_smem[offset] = idx;
     }
     is_full = (curr_local_idx == ITEMS_PER_GPU_PER_WARP - warpSize);
-    uint32_t ballot_val = __ballot_sync(0xffffffff, is_full);
+    uint64_t ballot_val = __ballot(is_full);
     // __syncwarp();
-    int leading_zeros = __clz(ballot_val);
+    int leading_zeros = __clzll(ballot_val);
     while (leading_zeros < warpSize) {
-      uint32_t full_gpu_idx = __shfl_sync(0xffffffff, chunk_id, warpSize - leading_zeros - 1);
-      ballot_val &= (((uint32_t)0xffffffff) >> (leading_zeros + 1));
-      leading_zeros = __clz(ballot_val);
+      uint32_t full_gpu_idx = __shfl(chunk_id, warpSize - leading_zeros - 1);
+      ballot_val &= (((uint64_t)0xffffffffffffffff) >> (leading_zeros + 1));
+      leading_zeros = __clzll(ballot_val);
       uint32_t curr_global_idx = 0;
       if (threadIdx.x == 0) {
         curr_global_idx = atomicAdd(chunk_sizes + full_gpu_idx, curr_warp_cnt_smem[full_gpu_idx]);
       }
-      curr_global_idx = __shfl_sync(0xffffffff, curr_global_idx, 0);
+      curr_global_idx = __shfl(curr_global_idx, 0);
       // __syncwarp();
       for (size_t output_idx = threadIdx.x; output_idx < curr_warp_cnt_smem[full_gpu_idx];
            output_idx += warpSize) {
@@ -98,11 +99,11 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
       }
       // __syncwarp();
     }
-    __syncwarp();
+    // __syncwarp();
     if (is_full) {
       curr_warp_cnt_smem[chunk_id] = 0;
     }
-    __syncwarp();
+    // __syncwarp();
   }
   // tail
   for (size_t has_gpu_idx = 0; has_gpu_idx < chunks; ++has_gpu_idx) {
@@ -114,7 +115,7 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
     if (threadIdx.x == 0) {
       curr_global_idx = atomicAdd(chunk_sizes + has_gpu_idx, curr_warp_cnt_smem[has_gpu_idx]);
     }
-    curr_global_idx = __shfl_sync(0xffffffff, curr_global_idx, 0);
+    curr_global_idx = __shfl(curr_global_idx, 0);
     for (size_t output_idx = threadIdx.x; output_idx < curr_warp_cnt_smem[has_gpu_idx];
          output_idx += warpSize) {
       output_keys[has_gpu_idx * max_chunk_size + curr_global_idx + output_idx] =
@@ -122,7 +123,7 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
       output_indices[has_gpu_idx * max_chunk_size + curr_global_idx + output_idx] =
           curr_warp_idx_smem[has_gpu_idx * ITEMS_PER_GPU_PER_WARP + output_idx];
     }
-    __syncwarp();
+    // __syncwarp();
   }
 }
 
@@ -217,7 +218,7 @@ class All2AllInputDispatcher : public Dispatcher {
     const auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 
     // step 1: reset count spaces.
-    CK_CUDA(cudaMemsetAsync(num_selected_keys_[local_replica_id].get_ptr(), 0,
+    CK_CUDA(hipMemsetAsync(num_selected_keys_[local_replica_id].get_ptr(), 0,
                             num_selected_keys_[local_replica_id].get_size_in_bytes(),
                             local_gpu->get_stream()));
     std::memset(h_recv_chunk_offsets_[local_replica_id].get_ptr(), 0,
@@ -227,8 +228,8 @@ class All2AllInputDispatcher : public Dispatcher {
     const auto &input_keys = replica_context->input("replica_values");
     {
       const size_t smem_size = local_gpu->get_max_smem_size_per_sm();
-      CK_CUDA(cudaFuncSetAttribute(selectKernel<KeyType, IdenticalHash>,
-                                   cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+      CK_CUDA(hipFuncSetAttribute(reinterpret_cast<const void*>(selectKernel<KeyType, IdenticalHash>),
+                                  hipFuncAttributeMaxDynamicSharedMemorySize, smem_size));
       size_t const grid_dim = local_gpu->get_sm_count();
       dim3 const block_dim(local_gpu->get_warp_size(), KEY_WARPS_PER_BLOCK);
       selectKernel<KeyType, IdenticalHash>
@@ -240,7 +241,7 @@ class All2AllInputDispatcher : public Dispatcher {
               /*chunks=*/global_gpu_count, /*max_chunk_size=*/num_keys_per_rank_,
               /*chunk_sizes=*/num_selected_keys_[local_replica_id].get_ptr(),
               /*ITEMS_PER_GPU_PER_WARP=*/ITEMS_PER_GPU_PER_WARP_);
-      CK_CUDA(cudaGetLastError());
+      CK_CUDA(hipGetLastError());
     }
 
     // step 3: exchange selected keys count among all GPUs
@@ -254,15 +255,15 @@ class All2AllInputDispatcher : public Dispatcher {
     CK_NCCL(ncclGroupEnd());
 
     // step 4: copy count from GPU to CPU and calculate count offsets
-    CK_CUDA(cudaMemcpyAsync(h_num_selected_keys_[local_replica_id].get_ptr(),
+    CK_CUDA(hipMemcpyAsync(h_num_selected_keys_[local_replica_id].get_ptr(),
                             num_selected_keys_[local_replica_id].get_ptr(),
                             num_selected_keys_[local_replica_id].get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost, local_gpu->get_stream()));
-    CK_CUDA(cudaMemcpyAsync(h_num_exchanged_keys_[local_replica_id].get_ptr(),
+                            hipMemcpyDeviceToHost, local_gpu->get_stream()));
+    CK_CUDA(hipMemcpyAsync(h_num_exchanged_keys_[local_replica_id].get_ptr(),
                             num_exchanged_keys_[local_replica_id].get_ptr(),
                             num_exchanged_keys_[local_replica_id].get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost, local_gpu->get_stream()));
-    CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
+                            hipMemcpyDeviceToHost, local_gpu->get_stream()));
+    CK_CUDA(hipStreamSynchronize(local_gpu->get_stream()));
 
     for (size_t dev_id = 0; dev_id < global_gpu_count; dev_id++) {
       h_recv_chunk_offsets_[local_replica_id].get_ptr()[dev_id + 1] =

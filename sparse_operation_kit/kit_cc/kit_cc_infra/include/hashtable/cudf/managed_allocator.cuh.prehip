@@ -30,16 +30,16 @@ struct managed_allocator {
 
   T* allocate(std::size_t n) const {
     T* ptr = 0;
-    hipError_t result = hipMallocManaged(&ptr, n * sizeof(T));
-    if (hipSuccess != result || nullptr == ptr) {
+    cudaError_t result = cudaMallocManaged(&ptr, n * sizeof(T));
+    if (cudaSuccess != result || nullptr == ptr) {
       std::cerr << "ERROR: CUDA Runtime call in line " << __LINE__ << "of file " << __FILE__
-                << " failed with " << hipGetErrorString(result) << " (" << result << ") "
+                << " failed with " << cudaGetErrorString(result) << " (" << result << ") "
                 << " Attempted to allocate: " << n * sizeof(T) << " bytes.\n";
       throw std::bad_alloc();
     }
     return ptr;
   }
-  void deallocate(T* p, std::size_t) const { hipFree(p); }
+  void deallocate(T* p, std::size_t) const { cudaFree(p); }
 };
 
 template <class T, class U>

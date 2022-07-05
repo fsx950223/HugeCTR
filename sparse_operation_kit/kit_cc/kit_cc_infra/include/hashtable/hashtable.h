@@ -17,7 +17,7 @@
 #ifndef HASHTABLE_HASHTABLE_H
 #define HASHTABLE_HASHTABLE_H
 
-#include "cuda_runtime_api.h"
+#include "hip/hip_runtime_api.h"
 
 namespace SparseOperationKit {
 
@@ -30,7 +30,7 @@ class HashTable {
    * current value of the device counter.
    * @param counter_add the new counter value to be added.
    */
-  virtual size_t get_and_add_value_head(size_t counter_add, cudaStream_t stream) = 0;
+  virtual size_t get_and_add_value_head(size_t counter_add, hipStream_t stream) = 0;
 
   /**
    * The get function for hash table. "get" means fetching some values indexed
@@ -40,7 +40,7 @@ class HashTable {
    * @param len the number of <key,value> pairs to be got from the hash table.
    * @param stream the cuda stream for this operation.
    */
-  virtual void get(const void *d_keys, void *d_vals, size_t len, cudaStream_t stream) const = 0;
+  virtual void get(const void *d_keys, void *d_vals, size_t len, hipStream_t stream) const = 0;
 
   /**
    * The get_insert function for hash table. "get_insert" means if we can find
@@ -53,7 +53,7 @@ class HashTable {
    * @param len the number of <key,value> pairs to be got or inserted into the hash table.
    * @param stream the cuda stream for this operation.
    */
-  virtual void get_insert(const void *d_keys, void *d_vals, size_t len, cudaStream_t stream) = 0;
+  virtual void get_insert(const void *d_keys, void *d_vals, size_t len, hipStream_t stream) = 0;
 
   /**
    * The insert function for hash table. "insert" means putting some new <key,value> pairs
@@ -63,27 +63,27 @@ class HashTable {
    * @param len the number of <key,value> pairs to be inserted into the hash table.
    * @param stream the cuda stream for this operation.
    */
-  virtual void insert(const void *d_keys, const void *d_vals, size_t len, cudaStream_t stream) = 0;
+  virtual void insert(const void *d_keys, const void *d_vals, size_t len, hipStream_t stream) = 0;
 
   /**
    * Get the current size of the hash table. Size is also known as the number
    * of <key,value> pairs.
    * @param stream the cuda stream for this operation.
    */
-  virtual size_t get_size(cudaStream_t stream) const = 0;
+  virtual size_t get_size(hipStream_t stream) const = 0;
 
   /**
    * Get the capacity of the hash table. Size is also known as the number
    * of <key,value> pairs.
    * @param stream the cuda stream for this operation.
    */
-  virtual size_t get_capacity(cudaStream_t stream) const = 0;
+  virtual size_t get_capacity(hipStream_t stream) const = 0;
 
   /**
    * Get the head of the value from the device counter. It's equal to the
    * number of the <key,value> pairs in the hash table.
    */
-  virtual size_t get_value_head(cudaStream_t stream) const = 0;
+  virtual size_t get_value_head(hipStream_t stream) const = 0;
 
   /**
    * The dump function for hash table. "dump" means getting some of the <key,value>
@@ -94,7 +94,7 @@ class HashTable {
    * @param stream the cuda stream for this operation.
    */
   virtual void dump(void *d_key, void *d_val, size_t *d_dump_counter,
-                    cudaStream_t stream) const = 0;
+                    hipStream_t stream) const = 0;
 
   /**
    * decide whether this hashtable use identical mapping

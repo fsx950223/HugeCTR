@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cub/cub.cuh>
+#include <hipcub/hipcub.hpp>
 
 #include "common.cuh"
 #include "common/include/conversion_kernels.cuh"
@@ -83,11 +83,11 @@ class CsrConversionDistributed : public Operation {
       }
       {
         size_t size_0 = 0;
-        CK_CUDA(cub::DeviceSelect::Flagged(
+        CK_CUDA(hipcub::DeviceSelect::Flagged(
             (void *)nullptr, size_0, (KeyType *)nullptr, (bool *)nullptr, (KeyType *)nullptr,
             (size_t *)nullptr, static_cast<int32_t>(global_batch_size * slot_num_ * max_nnz_)));
         size_t size_1 = 0;
-        CK_CUDA(cub::DeviceSelect::Flagged(
+        CK_CUDA(hipcub::DeviceSelect::Flagged(
             (void *)nullptr, size_1, (int64_t *)nullptr, (bool *)nullptr, (int32_t *)nullptr,
             (size_t *)nullptr, static_cast<int32_t>(global_batch_size * slot_num_ * max_nnz_)));
 
@@ -125,7 +125,7 @@ class CsrConversionDistributed : public Operation {
     // choose valuse based on binary vector
     size_t total_valid_num = host_total_num_elements->GetPtrWithType<size_t>()[0];
     size_t size = cub_d_temp_storage_[local_replica_id].get_size_in_bytes();
-    CK_CUDA(cub::DeviceSelect::Flagged(
+    CK_CUDA(hipcub::DeviceSelect::Flagged(
         /*d_temp_storage=*/cub_d_temp_storage_[local_replica_id].get_ptr(),
         /*temp_storage_bytes=*/size,
         /*d_in=*/total_values->GetPtrWithType<KeyType>(),
@@ -135,14 +135,14 @@ class CsrConversionDistributed : public Operation {
         /*num_iterms=*/total_valid_num, stream));
 
     // copy num_selected (nnz) to host
-    CK_CUDA(cudaMemcpyAsync(cub_host_num_selected_[local_replica_id].get_ptr(),
+    CK_CUDA(hipMemcpyAsync(cub_host_num_selected_[local_replica_id].get_ptr(),
                             cub_dev_num_selected_[local_replica_id].get_ptr(),
                             cub_dev_num_selected_[local_replica_id].get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost, stream));
-    CK_CUDA(cudaStreamSynchronize(stream));
+                            hipMemcpyDeviceToHost, stream));
+    CK_CUDA(hipStreamSynchronize(stream));
 
     // choose row_indices based on binary vector
-    CK_CUDA(cub::DeviceSelect::Flagged(
+    CK_CUDA(hipcub::DeviceSelect::Flagged(
         /*d_temp_storage=*/cub_d_temp_storage_[local_replica_id].get_ptr(),
         /*temp_storage_bytes=*/size,
         /*d_in=*/total_row_indices->GetPtrWithType<int64_t>(),
@@ -153,13 +153,13 @@ class CsrConversionDistributed : public Operation {
 
     // convert COO row_indices to CSR row_offsets.
     size_t rows_num = binary_flags_[local_replica_id].get_num_elements() / max_nnz_;
-    CK_CUSPARSE(cusparseXcoo2csr(
+    CK_CUSPARSE(hipsparseXcoo2csr(
         /*handle=*/local_gpu->get_cusparse(),
         /*cooRowInd=*/cub_coo_indices_output_[local_replica_id].get_ptr(),
         /*nnz=*/static_cast<int32_t>(cub_host_num_selected_[local_replica_id].get_ptr()[0]),
         /*m=*/rows_num,
         /*csrRowPtr=*/cusparse_csr_row_offsets_output_[local_replica_id].get_ptr(),
-        CUSPARSE_INDEX_BASE_ZERO));
+        HIPSPARSE_INDEX_BASE_ZERO));
 
     // cast row_offset dtype
     auto op = [] __device__(int value) { return static_cast<int64_t>(value); };
@@ -197,16 +197,16 @@ class CsrConversionDistributed : public Operation {
   void reset(const size_t local_replica_id) {
     const auto &stream = resource_mgr_->get_local_gpu(local_replica_id)->get_stream();
 
-    CK_CUDA(cudaMemsetAsync(binary_flags_[local_replica_id].get_ptr(), 0,
+    CK_CUDA(hipMemsetAsync(binary_flags_[local_replica_id].get_ptr(), 0,
                             binary_flags_[local_replica_id].get_size_in_bytes(), stream));
-    CK_CUDA(cudaMemsetAsync(cub_coo_indices_output_[local_replica_id].get_ptr(), 0,
+    CK_CUDA(hipMemsetAsync(cub_coo_indices_output_[local_replica_id].get_ptr(), 0,
                             cub_coo_indices_output_[local_replica_id].get_size_in_bytes(), stream));
-    CK_CUDA(cudaMemsetAsync(cub_values_output_[local_replica_id].get_ptr(), 0,
+    CK_CUDA(hipMemsetAsync(cub_values_output_[local_replica_id].get_ptr(), 0,
                             cub_values_output_[local_replica_id].get_size_in_bytes(), stream));
-    CK_CUDA(cudaMemsetAsync(cusparse_csr_row_offsets_output_[local_replica_id].get_ptr(), 0,
+    CK_CUDA(hipMemsetAsync(cusparse_csr_row_offsets_output_[local_replica_id].get_ptr(), 0,
                             cusparse_csr_row_offsets_output_[local_replica_id].get_size_in_bytes(),
                             stream));
-    CK_CUDA(cudaMemsetAsync(csr_row_offsets_cast_[local_replica_id].get_ptr(), 0,
+    CK_CUDA(hipMemsetAsync(csr_row_offsets_cast_[local_replica_id].get_ptr(), 0,
                             csr_row_offsets_cast_[local_replica_id].get_size_in_bytes(), stream));
   }
 

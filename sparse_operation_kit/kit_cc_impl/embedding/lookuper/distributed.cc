@@ -192,9 +192,9 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     const auto &replica_hash_value_index =
         replica_context->get_internal_tensor("replica_hash_value_index");
     auto &value_index_tensor = replica_context->output("value_index_tensor");
-    CK_CUDA(cudaMemcpyAsync(value_index_tensor->GetPtrWithType<int64_t>(),
+    CK_CUDA(hipMemcpyAsync(value_index_tensor->GetPtrWithType<int64_t>(),
                             replica_hash_value_index->GetPtrWithType<int64_t>(),
-                            value_index_tensor->get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                            value_index_tensor->get_size_in_bytes(), hipMemcpyDeviceToDevice,
                             stream));
   }
 

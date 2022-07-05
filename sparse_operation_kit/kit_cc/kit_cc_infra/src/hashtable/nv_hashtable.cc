@@ -32,13 +32,13 @@ std::shared_ptr<NvHashTable<KeyType, ValType>> NvHashTable<KeyType, ValType>::cr
 
 template <typename KeyType, typename ValType>
 size_t NvHashTable<KeyType, ValType>::get_and_add_value_head(size_t counter_add,
-                                                             cudaStream_t stream) {
+                                                             hipStream_t stream) {
   return hashtable_.get_and_add_value_head(counter_add, stream);
 }
 
 template <typename KeyType, typename ValType>
 void NvHashTable<KeyType, ValType>::get(const void *d_keys, void *d_vals, size_t len,
-                                        cudaStream_t stream) const {
+                                        hipStream_t stream) const {
   const KeyType *_d_keys = reinterpret_cast<const KeyType *>(d_keys);
   ValType *_d_vals = reinterpret_cast<ValType *>(d_vals);
   return hashtable_.get(_d_keys, _d_vals, len, stream);
@@ -46,7 +46,7 @@ void NvHashTable<KeyType, ValType>::get(const void *d_keys, void *d_vals, size_t
 
 template <typename KeyType, typename ValType>
 void NvHashTable<KeyType, ValType>::get_insert(const void *d_keys, void *d_vals, size_t len,
-                                               cudaStream_t stream) {
+                                               hipStream_t stream) {
   const KeyType *_d_keys = reinterpret_cast<const KeyType *>(d_keys);
   ValType *_d_vals = reinterpret_cast<ValType *>(d_vals);
   return hashtable_.get_insert(_d_keys, _d_vals, len, stream);
@@ -54,30 +54,30 @@ void NvHashTable<KeyType, ValType>::get_insert(const void *d_keys, void *d_vals,
 
 template <typename KeyType, typename ValType>
 void NvHashTable<KeyType, ValType>::insert(const void *d_keys, const void *d_vals, size_t len,
-                                           cudaStream_t stream) {
+                                           hipStream_t stream) {
   const KeyType *_d_keys = reinterpret_cast<const KeyType *>(d_keys);
   const ValType *_d_vals = reinterpret_cast<const ValType *>(d_vals);
   return hashtable_.insert(_d_keys, _d_vals, len, stream);
 }
 
 template <typename KeyType, typename ValType>
-size_t NvHashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
+size_t NvHashTable<KeyType, ValType>::get_size(hipStream_t stream) const {
   return hashtable_.get_size(stream);
 }
 
 template <typename KeyType, typename ValType>
-size_t NvHashTable<KeyType, ValType>::get_capacity(cudaStream_t stream) const {
+size_t NvHashTable<KeyType, ValType>::get_capacity(hipStream_t stream) const {
   return hashtable_.get_capacity();
 }
 
 template <typename KeyType, typename ValType>
-size_t NvHashTable<KeyType, ValType>::get_value_head(cudaStream_t stream) const {
+size_t NvHashTable<KeyType, ValType>::get_value_head(hipStream_t stream) const {
   return hashtable_.get_value_head(stream);
 }
 
 template <typename KeyType, typename ValType>
 void NvHashTable<KeyType, ValType>::dump(void *d_key, void *d_val, size_t *d_dump_counter,
-                                         cudaStream_t stream) const {
+                                         hipStream_t stream) const {
   KeyType *_d_key = reinterpret_cast<KeyType *>(d_key);
   ValType *_d_val = reinterpret_cast<ValType *>(d_val);
   return hashtable_.dump(_d_key, _d_val, d_dump_counter, stream);

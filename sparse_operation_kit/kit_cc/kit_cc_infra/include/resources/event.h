@@ -17,7 +17,7 @@
 #ifndef RESOURCES_EVENT_H
 #define RESOURCES_EVENT_H
 
-#include <cuda_runtime_api.h>
+#include <hip/hip_runtime_api.h>
 
 #include <memory>
 #include <string>
@@ -38,9 +38,9 @@ class Event {
   Event(Event&& event) = delete;
   Event& operator=(Event&& event) = delete;
 
-  void Record(cudaStream_t& stream);
+  void Record(hipStream_t& stream);
   bool IsReady() const;
-  void TillReady(cudaStream_t& stream);
+  void TillReady(hipStream_t& stream);
   void TillReady();
   std::string name() const;
 
@@ -48,7 +48,7 @@ class Event {
   explicit Event(const std::string name);
 
  private:
-  cudaEvent_t cuda_event_{nullptr};
+  hipEvent_t cuda_event_{nullptr};
   const std::string name_;
 };
 

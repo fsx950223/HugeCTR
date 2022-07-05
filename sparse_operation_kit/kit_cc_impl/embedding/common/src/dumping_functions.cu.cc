@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * Copyright (c) 2021, NVIDIA CORPORATION.
  *
@@ -20,11 +21,11 @@
 namespace SparseOperationKit {
 
 void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
-                    const float *embedding_table, float *value_retrieved, cudaStream_t stream) {
+                    const float *embedding_table, float *value_retrieved, hipStream_t stream) {
   const size_t block_size = embedding_vec_size;
   const size_t grid_size = count;
 
-  HugeCTR::get_hash_value_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(HugeCTR::get_hash_value_kernel, grid_size, block_size, 0, stream, 
       count, embedding_vec_size, value_index, embedding_table, value_retrieved);
 }
 
@@ -42,18 +43,18 @@ __global__ void generate_dummy_keys_kernel(KeyType *d_keys, const size_t num_key
 }
 template <typename KeyType>
 void generate_dummy_keys(KeyType *d_keys, const size_t num_keys, const size_t global_replica_id,
-                         const size_t global_gpu_count, cudaStream_t stream) {
+                         const size_t global_gpu_count, hipStream_t stream) {
   constexpr size_t block_size = 256ul;
   const size_t grid_size = (num_keys + block_size - 1) / block_size;
-  generate_dummy_keys_kernel<<<grid_size, block_size, 0, stream>>>(
+  hipLaunchKernelGGL(generate_dummy_keys_kernel, grid_size, block_size, 0, stream, 
       d_keys, num_keys, global_replica_id, global_gpu_count);
 }
 
 template void generate_dummy_keys(int64_t *d_keys, const size_t num_keys,
                                   const size_t global_replica_id, const size_t global_gpu_count,
-                                  cudaStream_t stream);
+                                  hipStream_t stream);
 template void generate_dummy_keys(uint32_t *d_keys, const size_t num_keys,
                                   const size_t global_replica_id, const size_t global_gpu_count,
-                                  cudaStream_t stream);
+                                  hipStream_t stream);
 
 }  // namespace SparseOperationKit

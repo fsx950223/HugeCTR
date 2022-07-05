@@ -26,7 +26,7 @@ class RandomUniformInit : public Initializer {
   static std::shared_ptr<RandomUniformInit> create(const float a, const float b);
 
   void fill(std::shared_ptr<Tensor> tensor, const size_t sm_count,
-            const curandGenerator_t& generator, const cudaStream_t& stream) override;
+            const hiprandGenerator_t& generator, const hipStream_t& stream) override;
 
  private:
   RandomUniformInit(const float a, const float b);

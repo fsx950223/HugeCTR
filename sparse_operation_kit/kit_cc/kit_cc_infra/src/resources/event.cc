@@ -21,12 +21,12 @@
 namespace SparseOperationKit {
 
 Event::Event(const std::string name) : name_(name) {
-  CK_CUDA(cudaEventCreateWithFlags(&cuda_event_, cudaEventDisableTiming));
+  CK_CUDA(hipEventCreateWithFlags(&cuda_event_, hipEventDisableTiming));
 }
 
 Event::~Event() {
   try {
-    CK_CUDA(cudaEventDestroy(cuda_event_));
+    CK_CUDA(hipEventDestroy(cuda_event_));
   } catch (const std::exception& error) {
     std::cerr << error.what() << std::endl;
   }
@@ -36,17 +36,17 @@ std::shared_ptr<Event> Event::create(const std::string name) {
   return std::shared_ptr<Event>(new Event(std::move(name)));
 }
 
-void Event::Record(cudaStream_t& stream) {
+void Event::Record(hipStream_t& stream) {
   if (!IsReady())
     throw std::runtime_error(ErrorBase + "cudaEvent: " + name() + " is still in use.");
-  CK_CUDA(cudaEventRecord(cuda_event_, stream));
+  CK_CUDA(hipEventRecord(cuda_event_, stream));
 }
 
 bool Event::IsReady() const {
-  cudaError_t error = cudaEventQuery(cuda_event_);
-  if (cudaSuccess == error) {
+  hipError_t error = hipEventQuery(cuda_event_);
+  if (hipSuccess == error) {
     return true;
-  } else if (cudaErrorNotReady == error) {
+  } else if (hipErrorNotReady == error) {
     return false;
   } else {
     CK_CUDA(error);
@@ -54,11 +54,11 @@ bool Event::IsReady() const {
   }
 }
 
-void Event::TillReady(cudaStream_t& stream) {
-  CK_CUDA(cudaStreamWaitEvent(stream, cuda_event_, cudaEventWaitDefault));
+void Event::TillReady(hipStream_t& stream) {
+  CK_CUDA(hipStreamWaitEvent(stream, cuda_event_, 0));
 }
 
-void Event::TillReady() { CK_CUDA(cudaEventSynchronize(cuda_event_)); }
+void Event::TillReady() { CK_CUDA(hipEventSynchronize(cuda_event_)); }
 
 std::string Event::name() const { return name_; }
 
