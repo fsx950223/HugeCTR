@@ -150,7 +150,7 @@ class Trainer:
             decay_steps,
         )
 
-    # @tf.function
+    @tf.function
     def _step(self, samples, labels, first_batch):
         self._lr_scheduler()
 
