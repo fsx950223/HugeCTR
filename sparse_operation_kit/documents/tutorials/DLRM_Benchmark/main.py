@@ -61,14 +61,14 @@ if __name__ == '__main__':
 
     hvd.init()
     # set_affinity(hvd.rank())
-
+    gpus = tf.config.get_visible_devices('GPU')
+    tf.config.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
     global_batch_size = args.global_batch_size
     sok.Init(global_batch_size=global_batch_size)
     vocab_sizes = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34]
     if not args.use_synthetic_dataset and args.data_dir:
         with open(os.path.join(args.data_dir, 'train/metadata.json'), 'r') as f:
             metadata = json.load(f)
-        print(metadata)
         vocab_sizes = metadata['vocab_sizes']
 
     model = DLRM(
