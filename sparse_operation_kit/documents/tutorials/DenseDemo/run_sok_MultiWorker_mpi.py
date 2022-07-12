@@ -20,7 +20,7 @@ import argparse
 import sys,os,json
 sys.path.append("../")
 import utility
-from utility import sparse_operation_kit as sok
+import sparse_operation_kit as sok
 import nvtx
 import time
 import numpy as np

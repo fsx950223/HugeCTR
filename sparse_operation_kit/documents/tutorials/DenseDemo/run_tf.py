@@ -15,6 +15,7 @@
 """
 
 import tensorflow as tf
+tf.debugging.disable_traceback_filtering()
 from models import TfDenseDemo
 import argparse
 import os, sys, json
@@ -23,6 +24,7 @@ import numpy as np
 sys.path.append("../")
 import utility
 import nvtx
+from tqdm import tqdm
 
 def split_emb_and_dense_variables(variables):
     emb_vars, dense_vars = [], []
@@ -67,7 +69,7 @@ def main(args, task_id):
                                 batchsize=replica_batch_size,
                                 as_sparse_tensor=False, 
                                 repeat=1)
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.prefetch(tf.data.AUTOTUNE).repeat(100)
 
     with strategy.scope():
         model = TfDenseDemo(global_batch_size=args.global_batch_size,
@@ -116,20 +118,27 @@ def main(args, task_id):
                                           options=comm_options)
         return loss
     
-    time_arr = []
+    # time_arr = []
+    interval = 100
+    iter_time = time.time()
     for i, (inputs, labels) in enumerate(dataset):
         if args.stop_at_iter > 0 and i >= args.stop_at_iter:
             break
 
-        rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
-        start_time = time.time()
+        # rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
+        # start_time = time.time()
         loss = strategy.run(_train_step, args=(inputs, labels))
-        time_arr.append(time.time()-start_time)
+        if i%interval==0:
+            t = time.time() - iter_time
+            throughput = interval * args.global_batch_size / t
+            print('Iteration:%d\tloss:%.6f\ttime:%.2fs\tthroughput:%.3fM'%(i, loss, t, throughput / 1000000))
+            iter_time = time.time()
+        # time_arr.append(time.time()-start_time)
         
-        nvtx.end_range(rng)
-        print("[INFO]: Iteration: {}, loss={}".format(i, loss))
+        # nvtx.end_range(rng)
+        # print("[INFO]: Iteration: {}, loss={}".format(i, loss))
     
-    print("Average iteration time (except 1st iteration): ", np.mean(time_arr[1:]))
+    # print("Average iteration time (except 1st iteration): ", np.mean(time_arr[1:]))
 
 def set_affinity(rank):
     affinity_map = {0: list(range(48,64)) + list(range(176,192)),

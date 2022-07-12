@@ -20,10 +20,12 @@ import argparse
 import sys
 sys.path.append("../")
 import utility
-from utility import sparse_operation_kit as sok
+import sparse_operation_kit as sok
 import nvtx
 import horovod.tensorflow as hvd
-import os
+import numpy as np
+import time
+from tqdm import tqdm
 
 def main(args):
     # Initialize horovod
@@ -44,7 +46,7 @@ def main(args):
                                 batchsize=local_batch_size,
                                 as_sparse_tensor=False,
                                 repeat=1)
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.prefetch(tf.data.AUTOTUNE).repeat(100)
 
     # Because there is no tensorflow distribute strategy, sok.Init() will call horovod to
     # broadcast nccl id and random seed, so it must be called after hvd.init()
@@ -100,17 +102,23 @@ def main(args):
             hvd.broadcast_variables(dense_optimizer.variables(), root_rank=0)
 
         return replica_loss
-
+    interval = 100
+    iter_time = time.time()
     for i, (inputs, labels) in enumerate(dataset):
         if args.stop_at_iter > 0 and i >= args.stop_at_iter:
             break
 
-        rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
-
+        # rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
+        # start_time = time.time()
         total_loss = _train_step(inputs, labels, i == 0)
-
-        nvtx.end_range(rng)
-        print("[INFO]: Iteration: {}, loss={}".format(i, total_loss))
+        if i%interval==0:
+            t = time.time() - iter_time
+            throughput = interval * args.global_batch_size / t
+            print('Iteration:%d\tloss:%.6f\ttime:%.2fs\tthroughput:%.3fM'%(i, total_loss, t, throughput / 1000000))
+            iter_time = time.time()
+        # time_arr.append(time.time()-start_time)
+        # print("[INFO]: Iteration: {}, loss={}".format(i, total_loss))
+    # print("Average iteration time (except 1st iteration): ", np.mean(time_arr[1:]))
 
 if __name__ == "__main__":
 

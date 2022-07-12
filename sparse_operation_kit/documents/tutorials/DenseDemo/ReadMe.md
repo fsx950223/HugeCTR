@@ -35,7 +35,7 @@ $ python3 split_data.py \
 ### Run this demo writen with TensorFlow ###
 This is a model parallelism demo implemented by tf methods.
 ```shell
-$ mpiexec -n 8 --allow-run-as-root \
+$ mpiexec -n 4 --allow-run-as-root \
     python3 run_tf.py \
     --data_filename="./data_" \
     --global_batch_size=65536 \
@@ -79,7 +79,7 @@ $ mpiexec -n 8 --allow-run-as-root \
 
 ### Run this demo writen with SOK + Horovod ###
 ```shell
-$ horovodrun -np 8 -H localhost:8 \
+$ horovodrun -np 4 \
     python3 run_sok_horovod.py \
     --data_filename_prefix="./data_" \
     --global_batch_size=65536 \
