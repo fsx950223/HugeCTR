@@ -111,7 +111,7 @@ def main(args):
         # rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
         # start_time = time.time()
         total_loss = _train_step(inputs, labels, i == 0)
-        if i%interval==0:
+        if i>0 and i%interval==0:
             t = time.time() - iter_time
             throughput = interval * args.global_batch_size / t
             print('Iteration:%d\tloss:%.6f\ttime:%.2fs\tthroughput:%.3fM'%(i, total_loss, t, throughput / 1000000))

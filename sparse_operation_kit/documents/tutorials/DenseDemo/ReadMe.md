@@ -17,7 +17,7 @@ This commands will generate a dataset randomly. By default, its filename is `dat
 $ python3 gen_data.py \
     --global_batch_size=65536 \
     --slot_num=100 \
-    --nnz_per_slot=10 \
+    --nnz_per_slot=1 \
     --iter_num=30 
 ```
 
@@ -35,7 +35,7 @@ $ python3 split_data.py \
 ### Run this demo writen with TensorFlow ###
 This is a model parallelism demo implemented by tf methods.
 ```shell
-$ mpiexec -n 4 --allow-run-as-root \
+$ mpiexec -n 8 --allow-run-as-root \
     python3 run_tf.py \
     --data_filename="./data_" \
     --global_batch_size=65536 \
@@ -79,7 +79,7 @@ $ mpiexec -n 8 --allow-run-as-root \
 
 ### Run this demo writen with SOK + Horovod ###
 ```shell
-$ horovodrun -np 4 \
+$ horovodrun -np 8 \
     python3 run_sok_horovod.py \
     --data_filename_prefix="./data_" \
     --global_batch_size=65536 \
@@ -89,4 +89,5 @@ $ horovodrun -np 4 \
     --num_dense_layers=6 \
     --embedding_vec_size=4 \
     --optimizer="adam"
+    --dgx_a100
 ```

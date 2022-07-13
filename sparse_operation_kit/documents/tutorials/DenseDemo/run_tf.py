@@ -15,7 +15,7 @@
 """
 
 import tensorflow as tf
-tf.debugging.disable_traceback_filtering()
+# tf.debugging.disable_traceback_filtering()
 from models import TfDenseDemo
 import argparse
 import os, sys, json
@@ -128,7 +128,7 @@ def main(args, task_id):
         # rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
         # start_time = time.time()
         loss = strategy.run(_train_step, args=(inputs, labels))
-        if i%interval==0:
+        if i>0 and i%interval==0:
             t = time.time() - iter_time
             throughput = interval * args.global_batch_size / t
             print('Iteration:%d\tloss:%.6f\ttime:%.2fs\tthroughput:%.3fM'%(i, loss, t, throughput / 1000000))
@@ -197,5 +197,6 @@ if __name__ == "__main__":
         print("Setting CPU affinity for DGX A100. This will likely fail on a non DGX A100 machine...")
         set_affinity(task_id)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(task_id)
+    gpus = tf.config.list_physical_devices("GPU")
+    tf.config.set_visible_devices(gpus[int(task_id)], "GPU")
     main(args, task_id)
